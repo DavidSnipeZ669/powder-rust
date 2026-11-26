@@ -31,6 +31,7 @@ struct Query {
     last: Value,
 }
 
+#[allow(dead_code)] // kept for upcoming features
 pub enum Change {
     Created(String),
     Updated(String, Value),
@@ -161,6 +162,7 @@ impl Projects {
     }
 
     /// raw storage file (without derived fields)
+    #[allow(dead_code)] // kept for upcoming features
     pub fn storage(&self, id: &str) -> Option<Value> {
         serde_json::from_str(&std::fs::read_to_string(file(id)).ok()?).ok()
     }
@@ -169,6 +171,7 @@ impl Projects {
         self.cache.lock().values().cloned().collect()
     }
 
+    #[allow(dead_code)] // kept for upcoming features
     pub fn on_change<F: Fn(&Change) + Send + Sync + 'static>(&self, f: F) {
         self.listeners.lock().push(Box::new(f));
     }

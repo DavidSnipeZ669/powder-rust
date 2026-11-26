@@ -59,6 +59,7 @@ pub fn model(powder_game_id: &str) -> Option<Value> {
     CUES.get()?.read().get(powder_game_id).cloned()
 }
 
+#[allow(dead_code)] // kept for upcoming features
 pub fn all() -> serde_json::Map<String, Value> {
     CUES.get().map(|l| l.read().clone()).unwrap_or_default()
 }

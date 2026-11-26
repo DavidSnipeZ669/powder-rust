@@ -6,6 +6,7 @@ use std::sync::OnceLock;
 pub struct Screen {
     pub index: i64,
     pub name: String,
+    #[allow(dead_code)] // kept for upcoming features
     pub width: u32,
     pub height: u32,
 }

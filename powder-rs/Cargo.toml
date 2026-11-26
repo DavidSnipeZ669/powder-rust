@@ -26,7 +26,6 @@ hex = "0.4"
 ureq = { version = "2", default-features = false, features = ["tls", "json"] }
 walkdir = "2"
 dirs = "6"
-rand = "0.9"
 sysinfo = "0.37"
 hound = "3"
 whisper-rs = { version = "0.16", optional = true }

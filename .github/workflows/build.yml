@@ -1,0 +1,48 @@
+# Builds Rewind.exe on a Windows machine on every push, so broken builds are caught early.
+# Pushing a tag like v1.0.1 also creates a GitHub release with Rewind.exe attached.
+name: Build Rewind
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            powder-rs
+            powder-app
+
+      - name: Build the custom-game engine
+        working-directory: powder-rs
+        run: cargo build --release
+
+      - name: Build Rewind.exe
+        working-directory: powder-app
+        env:
+          REWIND_ENGINE_EXE: ${{ github.workspace }}\powder-rs\target\release\powder-rs.exe
+        run: cargo build --release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Rewind
+          path: powder-app/target/release/Rewind.exe
+
+      - name: Attach to release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: powder-app/target/release/Rewind.exe

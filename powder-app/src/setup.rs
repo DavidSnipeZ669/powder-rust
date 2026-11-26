@@ -135,6 +135,7 @@ static PICK: Mutex<Option<std::sync::mpsc::Sender<Option<PathBuf>>>> = Mutex::ne
 pub fn set_window(w: crate::window::WindowCtl) {
     let _ = WIN.set(w);
 }
+#[allow(dead_code)]
 fn picked(p: Option<PathBuf>) {
     if let Some(tx) = PICK.lock().take() {
         let _ = tx.send(p);
@@ -647,7 +648,8 @@ pub fn make_full(src: &Path, out: &Path) -> Result<()> {
     let mut files = Vec::new();
     walk(src, Path::new(""), &mut files);
     let mut z = zip::ZipWriter::new(f);
-    let opt = zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated).large_file(true);
+    // fast compression: most of the size is DLLs and models that barely shrink anyway
+    let opt = zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated).compression_level(Some(1)).large_file(true);
     let mut buf = vec![0u8; 1 << 20];
     for (rel, _) in &files {
         let name = format!("Powder/{}", rel.to_string_lossy().replace('\\', "/"));

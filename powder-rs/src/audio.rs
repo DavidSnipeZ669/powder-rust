@@ -2,7 +2,9 @@
 //! whisper.cpp (optional `transcribe` feature; uses Powder's bundled ggml-base.bin model) and
 //! keyword events from the transcript.
 
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Result};
+#[cfg(feature = "transcribe")]
+use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use std::io::Read;
 use std::path::{Path, PathBuf};

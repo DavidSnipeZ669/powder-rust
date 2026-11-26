@@ -3,7 +3,7 @@
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -151,9 +151,4 @@ impl Settings {
         if let Some(s) = v["shortcuts"]["TOGGLE_RECORD_SESSION"]["shortcut"].as_str() { self.recorder.hotkey_toggle_record = s.into(); }
         if let Some(s) = v["shortcuts"]["MANUAL_BOOKMARK"]["shortcut"].as_str() { self.recorder.hotkey_bookmark = s.into(); }
     }
-}
-
-pub fn ensure_dir(p: &Path) -> Result<()> {
-    std::fs::create_dir_all(p)?;
-    Ok(())
 }

@@ -86,6 +86,7 @@ pub fn update(partial: Value) -> anyhow::Result<Value> {
     Ok(s)
 }
 
+#[allow(dead_code)] // kept for upcoming features
 pub fn get(key: &str) -> Value {
     read()[key].clone()
 }

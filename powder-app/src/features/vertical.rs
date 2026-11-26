@@ -66,6 +66,7 @@ pub fn list() -> Value {
 }
 
 /// readVerticalFormatTemplateByPowderGameId
+#[allow(dead_code)] // kept for upcoming features
 pub fn template_for(game: Option<&str>) -> Option<Value> {
     let name = game.unwrap_or("default");
     if let Some(t) = custom().get(name) {

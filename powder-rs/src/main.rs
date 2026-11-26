@@ -1,3 +1,4 @@
+#![allow(linker_messages)] // a harmless LIBCMT notice from the ONNX/C++ libraries on Windows
 //! powder-rs: an open, customisable highlight-detection engine compatible with Powder's
 //! game configs (events.json + game_postprocess.lua), plus tools to add new games.
 

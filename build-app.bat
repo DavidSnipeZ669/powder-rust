@@ -25,15 +25,21 @@ cargo build --release
 if errorlevel 1 ( echo Engine build failed. & pause & exit /b 1 )
 
 echo === 2/2 Building Rewind.exe ===
+REM a running Rewind locks its exe: close it first (it lives in the tray when its window is closed)
+taskkill /im Rewind.exe /f >nul 2>nul
+taskkill /im Rewind-Full.exe /f >nul 2>nul
 cd /d "%~dp0powder-app"
 set REWIND_ENGINE_EXE=%~dp0powder-rs\target\release\powder-rs.exe
 cargo build --release
 if errorlevel 1 ( echo Build failed. & pause & exit /b 1 )
 copy /y target\release\Rewind.exe "%OUT%\Rewind.exe" >nul
+if errorlevel 1 ( echo Could not replace %OUT%\Rewind.exe - close Rewind and run this again. & pause & exit /b 1 )
 
 echo === Making Rewind-Full.exe (Rewind with Powder's files inside, no download needed) ===
 if exist "%POWDER_SRC%\resources" (
-  start "" /wait "%OUT%\Rewind.exe" --make-full "%POWDER_SRC%" "%OUT%\Rewind-Full.exe"
+  echo Packing about 1 GB of Powder files - this takes a minute or two...
+  if exist "%OUT%\Rewind-Full.exe" del "%OUT%\Rewind-Full.exe"
+  start "" /wait "%~dp0powder-app\target\release\Rewind.exe" --make-full "%POWDER_SRC%" "%OUT%\Rewind-Full.exe"
   if exist "%OUT%\Rewind-Full.exe" ( echo Made Rewind-Full.exe ) else ( echo Could not make Rewind-Full.exe - see %%LOCALAPPDATA%%\Powder\powder-rs.log )
 ) else (
   echo Skipped: no Powder folder at %POWDER_SRC%

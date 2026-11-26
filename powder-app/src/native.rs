@@ -392,6 +392,7 @@ impl Job {
         out
     }
 
+    #[allow(dead_code)] // kept for upcoming features
     pub fn push(&self, name: &str, args: Option<&Value>) -> Receiver<Result<Value>> {
         self.proc.push(name, args)
     }

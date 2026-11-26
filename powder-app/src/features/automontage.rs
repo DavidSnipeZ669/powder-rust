@@ -166,6 +166,7 @@ pub fn custom_length() -> Option<f64> {
     std::fs::read_to_string(p).ok().and_then(|t| serde_json::from_str::<Value>(&t).ok()).and_then(|v| v["seconds"].as_f64())
 }
 
+#[allow(dead_code)] // kept for upcoming features
 pub fn set_custom_length(sec: Option<f64>) {
     let p = super::user_data().join("Feature Storage").join("powder-rs-montage-length.json");
     let _ = super::core::write_json(&p, &json!({"seconds": sec}));

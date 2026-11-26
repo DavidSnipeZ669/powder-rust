@@ -79,8 +79,4 @@ impl Jobs {
         let g = self.inner.lock().unwrap();
         g.1.values().rev().take(30).cloned().collect()
     }
-
-    pub fn get(&self, id: u64) -> Option<JobState> {
-        self.inner.lock().unwrap().1.get(&id).cloned()
-    }
 }

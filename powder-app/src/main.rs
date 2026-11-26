@@ -1,3 +1,4 @@
+#![cfg_attr(not(windows), allow(dead_code))] // non-Windows builds are only for testing
 //! Powder (Rust). Opens Powder's original interface in a native window (WebView2 on Windows) and runs
 //! Powder's main process - every bridge the interface uses - in Rust. Powder's native engine
 //! (PowderRecorderCli.exe) is driven from Rust for recording, analysis and video processing.

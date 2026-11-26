@@ -8,7 +8,7 @@ use crate::ocr::Ocr;
 use anyhow::{anyhow, Context, Result};
 use image::RgbImage;
 use serde_json::{json, Value};
-use std::io::{Cursor, Read};
+use std::io::Cursor;
 #[allow(unused_imports)]
 use std::io::Write as _;
 use std::path::{Path, PathBuf};

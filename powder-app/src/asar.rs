@@ -55,11 +55,13 @@ impl Asar {
         Ok(self.data[self.base + off..self.base + off + size].to_vec())
     }
 
+    #[allow(dead_code)] // kept for upcoming features
     pub fn write(&mut self, path: &str, content: Vec<u8>) {
         self.overrides.insert(path.to_string(), content);
     }
 
     /// Serialise with all overrides applied (offsets and integrity recomputed).
+    #[allow(dead_code)] // kept for upcoming features
     pub fn save(&self, out: &Path) -> Result<()> {
         let mut header = self.header.clone();
         let mut blob: Vec<u8> = Vec::with_capacity(self.data.len());
@@ -107,6 +109,7 @@ impl Asar {
     }
 }
 
+#[allow(dead_code)] // kept for upcoming features
 fn integrity(content: &[u8]) -> Value {
     const BLOCK: usize = 4 * 1024 * 1024;
     let hash = hex::encode(Sha256::digest(content));

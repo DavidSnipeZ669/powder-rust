@@ -88,7 +88,9 @@ pub struct Source {
     pub events_json: Option<Value>,
     pub duration: f64,
     pub has_audio: bool,
+    #[allow(dead_code)] // kept with the source info (vertical crops use the probe directly)
     pub width: u32,
+    #[allow(dead_code)]
     pub height: u32,
 }
 
