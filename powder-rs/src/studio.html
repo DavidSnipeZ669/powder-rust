@@ -1,0 +1,164 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>powder-rs studio</title>
+<style>
+:root{--bg:#0f1115;--panel:#181b22;--line:#2a2f3a;--txt:#dfe3ea;--dim:#8a93a3;--acc:#4ea1ff}
+*{box-sizing:border-box}body{margin:0;font:13px system-ui,sans-serif;background:var(--bg);color:var(--txt);height:100vh}
+#side{width:360px;padding:14px;overflow:auto;background:var(--panel);border-right:1px solid var(--line)}
+#main{flex:1;position:relative;overflow:auto}
+h1{font-size:16px;margin:0 0 10px}h2{font-size:13px;margin:16px 0 6px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em}
+select,input,button,textarea{font:inherit;color:var(--txt);background:#11141a;border:1px solid var(--line);border-radius:6px;padding:6px}
+button{cursor:pointer;background:#1f2633}button.primary{background:var(--acc);border-color:var(--acc);color:#fff}button:disabled{opacity:.5}
+.row{display:flex;gap:6px;margin:4px 0;align-items:center}.row>*{flex:1;min-width:0}.row>label{flex:0 0 auto;color:var(--dim)}
+.crop{border:1px solid var(--line);border-radius:6px;padding:6px 8px;margin:4px 0;cursor:pointer}
+.crop.sel{border-color:var(--acc)}.crop b{display:block}.crop code{color:#9cf;word-break:break-all}
+#drop{border:2px dashed var(--line);border-radius:8px;padding:18px;text-align:center;color:var(--dim)}
+#wrap{position:relative;display:inline-block;margin:12px}canvas{display:block;cursor:crosshair;max-width:none}
+textarea{width:100%;height:150px;font-family:ui-monospace,monospace;font-size:11px}.ocr{color:#7f7;font-family:ui-monospace,monospace}
+.hint{color:var(--dim);font-size:12px;line-height:1.4}
+#home{position:fixed;inset:0;overflow:auto;background:var(--bg);z-index:5;padding:32px 40px}
+#home h1{font-size:24px;margin:0 0 4px}#home .sub{color:var(--dim);margin-bottom:22px}
+.big{font-size:16px;padding:14px 22px;border-radius:10px}
+.cards{display:flex;flex-wrap:wrap;gap:12px;margin-top:10px}.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-width:220px}
+.card b{display:block;font-size:14px}.card small{color:var(--dim)}.card a{color:var(--acc);cursor:pointer;font-size:12px;margin-right:10px}
+#wiz{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:flex-start;justify-content:center;z-index:10;overflow:auto;padding:30px 0}
+#wiz .box{background:var(--panel);border:1px solid var(--line);border-radius:12px;width:min(780px,94vw);padding:22px 24px}
+#wiz h2{margin:0 0 14px;font-size:18px;color:var(--txt);text-transform:none;letter-spacing:0}
+.f{margin:10px 0}.f>label{display:block;margin-bottom:4px;color:var(--dim)}.f input,.f select{width:100%}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+#vdrop{border:2px dashed var(--line);border-radius:10px;padding:22px;text-align:center;color:var(--dim);cursor:pointer}
+#vdrop.ok{border-color:#3c8;color:#7f7}.bar{height:8px;background:#11141a;border-radius:4px;overflow:hidden;margin:8px 0}.bar>div{height:100%;background:var(--acc);width:0;transition:width .3s}
+details{margin-top:10px}summary{cursor:pointer;color:var(--dim)}
+.evs{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin-top:10px}
+.ev{background:#11141a;border:1px solid var(--line);border-radius:8px;overflow:hidden}.ev img{width:100%;display:block}.ev div{padding:6px 8px}
+.ev.off{opacity:.3}.rule{display:flex;justify-content:space-between;align-items:center;gap:8px;border-bottom:1px solid var(--line);padding:8px 0}.rule button{flex:0 0 auto}
+.rule small{color:var(--dim)}.err{color:#f77;white-space:pre-wrap;margin-top:8px}.check{display:flex;gap:8px;align-items:center;margin:6px 0}.check input{width:auto}
+</style></head><body>
+<div id="home">
+  <div style="margin-bottom:10px"><a href="/" style="color:var(--acc);text-decoration:none">&larr; Back to Powder-RS</a></div><h1>Games</h1>
+  <div class="sub">Add highlight detection for any game. Give it a title and a gameplay video - everything else is automatic.</div>
+  <button class="primary big" onclick="openWiz()">+ Add Custom Game Support</button>
+  <h2 style="margin-top:28px">Your games</h2><div class="cards" id="mygames"></div>
+</div>
+<div id="wiz"><div class="box">
+  <div id="wform">
+    <h2>Add Custom Game Support</h2>
+    <div class="f"><label>Game title</label><input id="wtitle" placeholder="e.g. Delta Force, Modern Warfare 4, Space Engineers"></div>
+    <div class="f"><label>Steam store link (optional - fills in name, store id, description and artwork)</label><input id="wsteam" placeholder="https://store.steampowered.com/app/2507950/Delta_Force/"></div>
+    <div class="f"><label>Gameplay video - a clip where kills / wins / other highlights appear on screen (a few minutes is plenty)</label>
+      <div id="vdrop" onclick="$('vfile').click()">Drop a video here or click to choose<br><small>or paste a path below (no copy needed)</small></div>
+      <input type="file" id="vfile" accept="video/*" style="display:none">
+      <div class="bar" id="upbar" style="display:none"><div></div></div>
+      <input id="wpath" placeholder="C:\Users\you\Videos\Powder\match.mp4" style="margin-top:6px">
+    </div>
+    <div class="grid3">
+      <div class="f"><label>Recording FPS</label><select id="wrec"><option value="">Auto (from file)</option><option>30</option><option>60</option><option>120</option><option>144</option><option>165</option><option>240</option><option value="custom">Custom...</option></select></div>
+      <div class="f"><label>Average in-game FPS</label><select id="wgame"><option value="">Unknown / same</option><option>30</option><option>60</option><option>90</option><option>120</option><option>144</option><option>165</option><option>240</option><option value="custom">Custom...</option></select></div>
+      <div class="f"><label>Analysis rate</label><select id="wfps"><option value="default">Balanced (4 fps)</option><option>10</option><option>30</option><option>60</option><option>120</option><option value="native">Every frame (native)</option></select></div>
+    </div>
+    <div class="check"><input type="checkbox" id="winstall" checked><label for="winstall">Install into Powder when done</label> <small id="wpowder" style="color:var(--dim)"></small></div>
+    <div class="check"><input type="checkbox" id="wonline" checked><label for="wonline">Fetch Steam id + artwork (needs internet)</label></div>
+    <details><summary>Advanced</summary>
+      <div class="f"><label>Game install folder (optional) - its text files are searched for event names you might not know</label><input id="wfiles" placeholder="C:\Program Files (x86)\Steam\steamapps\common\Delta Force"></div>
+      <div class="grid3"><div class="f"><label>Text scan rate</label><select id="wscan"><option value="2">2 fps (default)</option><option value="1">1 fps (faster)</option><option value="5">5 fps</option><option value="10">10 fps (short clips)</option></select></div>
+      <div class="f"><label>Powder folder</label><input id="wpdir" placeholder="auto"></div><div class="f"><label>&nbsp;</label><div class="check"><input type="checkbox" id="wreuse"><label for="wreuse">reuse last scan</label></div></div></div>
+    </details>
+    <div class="row" style="margin-top:16px"><button onclick="closeWiz()">Cancel</button><button class="primary" onclick="applyWiz()">Apply</button></div>
+    <div class="err" id="werr"></div>
+  </div>
+  <div id="wprog" style="display:none"><h2>Adding game...</h2><div id="wmsg"></div><div class="bar"><div id="wbar"></div></div><small id="wcount" style="color:var(--dim)"></small></div>
+  <div id="wres" style="display:none"></div>
+</div></div>
+<div id="manual" style="display:flex;width:100%;height:100vh">
+<div id="side">
+<h1><a onclick="goHome()" style="cursor:pointer;color:var(--acc)">&larr;</a> crop editor</h1>
+<div class="row"><select id="game"></select></div>
+<div id="drop">Drop a screenshot here<br>or paste (Ctrl+V)</div>
+<div class="row"><input id="vpath" placeholder="or a video path: C:\clips\match.mp4"><input id="vtime" placeholder="sec" style="max-width:60px"><button onclick="loadVideo()">Load</button></div>
+<p class="hint">Drag on the image to draw a crop. Pick a crop below first to redraw it. Coordinates are fractions of the screen, so they work at any resolution with the same aspect ratio and HUD scale.</p>
+<h2>Crops</h2><div id="crops"></div>
+<div class="row"><input id="newname" placeholder="new crop name (e.g. KillFeed)"><button onclick="addCrop()">Add</button></div>
+<h2>Selected crop</h2>
+<div class="row"><label>dilate</label><input id="dilate" type="number" value="5"><label>min area</label><input id="minArea" type="number" value="300"></div>
+<div class="row"><label>margin</label><input id="margin" type="number" value="10"><label>chars</label><input id="chars" placeholder="all"></div>
+<div class="row"><button onclick="testOcr()">Test OCR</button><button class="primary" onclick="saveCrop()">Save to game</button></div>
+<div id="ocr" class="ocr"></div>
+<h2>Lua snippet</h2><textarea id="snippet" readonly></textarea>
+<p class="hint">Run all: <button onclick="testAll()">OCR every crop</button></p>
+</div>
+<div id="main"><div id="wrap"><canvas id="cv" width="960" height="540"></canvas></div></div>
+</div>
+<script>
+let game=null,crops=[],sel=-1,img=new Image(),scale=1,drag=null,lastBoxes={},boxes={};
+const cv=document.getElementById('cv'),cx=cv.getContext('2d');
+const $=id=>document.getElementById(id);
+const api=(p,o)=>fetch(p,o).then(r=>r.json()).then(j=>{if(j.error)throw new Error(j.error);return j});
+async function init(){const g=await api('/api/games');const s=$('game');s.innerHTML=g.games.map(x=>`<option value="${x.id}">${x.id} - ${x.name}</option>`).join('');
+ s.onchange=()=>loadGame(s.value);if(!g.ocr)$('ocr').textContent='OCR not available (see README setup) - you can still draw and save crops.'}
+async function loadGame(id){const g=await api('/api/game?id='+encodeURIComponent(id));game=g;location.hash='edit:'+id;
+ crops=g.crops.map(c=>({name:c.name,coords:c.coords,dilate:c.dilate_diameter,minArea:c.min_area,margin:c.margin,chars:c.restricted_chars}));sel=crops.length?0:-1;render()}
+function render(){const el=$('crops');el.innerHTML=crops.map((c,i)=>`<div class="crop ${i==sel?'sel':''}" onclick="pick(${i})"><b>${c.name}</b><code>{ ${c.coords.map(v=>v.toFixed(3)).join(', ')} }</code><div class="ocr">${lastBoxes[c.name]!==undefined?'"'+lastBoxes[c.name]+'"':''}</div></div>`).join('');
+ if(sel>=0){const c=crops[sel];$('dilate').value=c.dilate;$('minArea').value=c.minArea;$('margin').value=c.margin;$('chars').value=c.chars||''}
+ $('snippet').value=crops.map(c=>`        {\n            cropName = "${c.name}",\n            debug = false,\n            cropCoords = { ${c.coords.map(v=>v.toFixed(3)).join(', ')} },\n            detectorDilateDiameter = ${c.dilate},\n            detectorMinimumArea = ${c.minArea},\n            detectorMargin = ${c.margin},\n            recogniserStretchVertical = false,\n            restrictedCharacters = "${c.chars||''}"\n        }`).join(',\n');draw()}
+function pick(i){sel=i;render()}
+function addCrop(){const n=$('newname').value.trim();if(!n)return;crops.push({name:n,coords:[.4,.4,.6,.5],dilate:5,minArea:300,margin:10,chars:''});sel=crops.length-1;$('newname').value='';render()}
+function draw(){if(img.naturalWidth){cv.width=img.naturalWidth*scale;cv.height=img.naturalHeight*scale;cx.drawImage(img,0,0,cv.width,cv.height)}else{cx.fillStyle='#222';cx.fillRect(0,0,cv.width,cv.height)}
+ crops.forEach((c,i)=>{const [l,t,r,b]=c.coords;cx.strokeStyle=i==sel?'#4ea1ff':'#ff5a5a';cx.lineWidth=i==sel?3:2;cx.strokeRect(l*cv.width,t*cv.height,(r-l)*cv.width,(b-t)*cv.height);cx.fillStyle=cx.strokeStyle;cx.font='14px system-ui';cx.fillText(c.name,l*cv.width+3,t*cv.height-4);(boxes[c.name]||[]).forEach(b=>{cx.strokeStyle='#5f5';cx.lineWidth=1.5;const ox=l*img.naturalWidth,oy=t*img.naturalHeight;cx.strokeRect((ox+b[0])*scale,(oy+b[1])*scale,(b[2]-b[0])*scale,(b[3]-b[1])*scale)})})}
+function fit(){const m=$('main');scale=Math.min(1,(m.clientWidth-30)/img.naturalWidth);draw()}
+img.onload=fit;window.onresize=fit;
+function reloadFrame(){img.src='/api/frame.png?'+Date.now()}
+async function upload(blob){await api('/api/upload',{method:'POST',body:blob});reloadFrame()}
+$('drop').ondragover=e=>e.preventDefault();$('drop').ondrop=e=>{e.preventDefault();if(e.dataTransfer.files[0])upload(e.dataTransfer.files[0])};
+document.onpaste=e=>{for(const it of e.clipboardData.items)if(it.type.startsWith('image/'))upload(it.getAsFile())};
+async function loadVideo(){await api('/api/load',{method:'POST',body:JSON.stringify({path:$('vpath').value,time:parseFloat($('vtime').value||'0')})});reloadFrame()}
+cv.onmousedown=e=>{if(sel<0)return;const r=cv.getBoundingClientRect();drag={x:(e.clientX-r.left)/cv.width,y:(e.clientY-r.top)/cv.height}};
+cv.onmousemove=e=>{if(!drag)return;const r=cv.getBoundingClientRect();const x=(e.clientX-r.left)/cv.width,y=(e.clientY-r.top)/cv.height;
+ boxes[crops[sel].name]=[];crops[sel].coords=[Math.min(drag.x,x),Math.min(drag.y,y),Math.max(drag.x,x),Math.max(drag.y,y)].map(v=>Math.max(0,Math.min(1,v)));draw()};
+cv.onmouseup=()=>{if(drag){drag=null;render();testOcr()}};
+function params(){const c=crops[sel];c.dilate=+$('dilate').value;c.minArea=+$('minArea').value;c.margin=+$('margin').value;c.chars=$('chars').value;return c}
+async function ocrOne(c){const r=await api('/api/ocr',{method:'POST',body:JSON.stringify({name:c.name,coords:c.coords,dilate:c.dilate,minArea:c.minArea,margin:c.margin,chars:c.chars})});lastBoxes[c.name]=r.text;boxes[c.name]=r.boxes;return r}
+async function testOcr(){if(sel<0)return;try{const c=params();const r=await ocrOne(c);$('ocr').textContent=r.text?`"${r.text}"  (${r.boxes.length} box)`:'(no text found - try a bigger box, lower min area or higher dilate)';
+ render()}catch(e){$('ocr').textContent=e.message}}
+async function testAll(){for(const c of crops){try{await ocrOne(c)}catch(e){lastBoxes[c.name]='error: '+e.message}}render()}
+async function saveCrop(){if(sel<0||!game)return;const c=params();try{await api('/api/save-crop',{method:'POST',body:JSON.stringify({game:game.id,name:c.name,coords:c.coords,dilate:c.dilate,minArea:c.minArea,margin:c.margin})});$('ocr').textContent='saved to game_postprocess.lua (backup: .bak)'}catch(e){$('ocr').textContent=e.message}}
+
+// ---------------- home + one-click wizard ----------------
+let powderDir=null, upPath=null, lastReport=null;
+function goHome(){location.hash='';$('home').style.display='block';refreshHome()}
+async function refreshHome(){const g=await api('/api/games');const p=await api('/api/powder');powderDir=p.powder;
+ $('mygames').innerHTML=g.games.filter(x=>!x.id.startsWith('_')).map(x=>`<div class="card"><b>${x.name}</b><small>${x.id}</small><br><a onclick="location.hash='edit:${x.id}';showEditor('${x.id}')">edit crops</a></div>`).join('')||'<small style="color:var(--dim)">none yet</small>'}
+function showEditor(id){$('home').style.display='none';$('game').value=id;loadGame(id)}
+function openWiz(){$('wiz').style.display='flex';$('wform').style.display='block';$('wprog').style.display='none';$('wres').style.display='none';$('werr').textContent='';
+ $('wpowder').textContent=powderDir?('('+powderDir+')'):'(Powder not found automatically - set the folder under Advanced)';}
+function closeWiz(){$('wiz').style.display='none'}
+for(const id of ['wrec','wgame'])$(id).onchange=e=>{if(e.target.value==='custom'){const v=prompt('FPS?');if(v){const o=new Option(v,v,true,true);e.target.add(o)}else e.target.value=''}};
+$('vfile').onchange=e=>{if(e.target.files[0])uploadVideo(e.target.files[0])};
+$('vdrop').ondragover=e=>{e.preventDefault()};$('vdrop').ondrop=e=>{e.preventDefault();if(e.dataTransfer.files[0])uploadVideo(e.dataTransfer.files[0])};
+function uploadVideo(f){const x=new XMLHttpRequest();$('upbar').style.display='block';x.upload.onprogress=e=>{$('upbar').firstElementChild.style.width=(100*e.loaded/e.total)+'%'};
+ x.onload=()=>{const r=JSON.parse(x.responseText);if(r.error){$('werr').textContent=r.error;return}upPath=r.path;$('wpath').value=r.path;$('vdrop').classList.add('ok');$('vdrop').innerHTML='&#10003; '+f.name};
+ x.open('POST','/api/video/upload?name='+encodeURIComponent(f.name));x.send(f)}
+async function applyWiz(){$('werr').textContent='';const body={title:$('wtitle').value,steam:$('wsteam').value,video:$('wpath').value,
+ recordingFps:parseFloat($('wrec').value)||null,gameFps:parseFloat($('wgame').value)||null,fps:$('wfps').value,scanFps:parseFloat($('wscan').value),
+ gameFiles:$('wfiles').value,install:$('winstall').checked,powder:$('wpdir').value||powderDir||'',online:$('wonline').checked,reuseScan:$('wreuse').checked};
+ if(!body.video){$('werr').textContent='Choose a video first.';return}
+ try{await api('/api/addgame',{method:'POST',body:JSON.stringify(body)})}catch(e){$('werr').textContent=e.message;return}
+ $('wform').style.display='none';$('wprog').style.display='block';poll()}
+async function poll(){const s=await api('/api/addgame/status');if(s.done){return showResult(s)}
+ const p=s.progress||{};$('wmsg').textContent=p.message||'starting...';const pct=p.total?100*p.done/p.total:0;$('wbar').style.width=(p.state==='scanning'?pct:100)+'%';
+ $('wcount').textContent=p.state==='scanning'&&p.total?`frame ${p.done} / ${p.total}`:'';setTimeout(poll,700)}
+function showResult(s){$('wprog').style.display='none';const el=$('wres');el.style.display='block';
+ if(s.error){el.innerHTML=`<h2>Couldn't add the game</h2><div class="err">${s.error}</div><div class="row" style="margin-top:14px"><button onclick="openWiz()">Back</button></div>`;return}
+ const r=s.report;lastReport=r;const evs=[...new Set(r.decisions.map(d=>d.event))];
+ el.innerHTML=`<h2>${r.title} added (${r.id})</h2>
+ <div>${r.installed_into_powder?'&#10003; Installed into Powder - fully close Powder (also from the tray) and start it again.':'Not installed into Powder.'} ${r.steam_app_id?' &middot; Steam app '+r.steam_app_id:''}</div>
+ <h2 style="font-size:14px;margin-top:16px">Events it detects</h2>
+ ${evs.map(e=>{const ds=r.decisions.filter(d=>d.event===e);return `<div class="rule"><div><b>${e}</b><br><small>${ds.map(d=>'"'+d.word+'" - '+d.reason).join('<br>')}</small></div><button onclick="removeEv('${e}',this)">Remove</button></div>`}).join('')}
+ <h2 style="font-size:14px;margin-top:16px">Test run on your video: ${r.test_events.length} event(s)</h2>
+ <div class="evs">${r.test_events.map(e=>`<div class="ev" data-ev="${e.name}"><img src="/api/thumb?id=${r.id}&t=${e.time_sec+0.6}"><div><b>${e.display_name}</b> <small>${e.timestamp}</small></div></div>`).join('')}</div>
+ ${r.warnings.length?'<details open><summary>Notes</summary><small>'+r.warnings.join('<br>')+'</small></details>':''}
+ <div class="row" style="margin-top:16px"><button onclick="location.hash='edit:${r.id}';closeWiz();showEditor('${r.id}')">Fine-tune crops</button><button class="primary" onclick="closeWiz();goHome()">Done</button></div>`}
+async function removeEv(ev,btn){if(!confirm('Stop detecting "'+ev+'"?'))return;btn.disabled=true;
+ await api('/api/game/remove-event',{method:'POST',body:JSON.stringify({id:lastReport.id,event:ev,powder:lastReport.installed_into_powder||''})});
+ btn.textContent='Removed';document.querySelectorAll(`.ev[data-ev="${ev}"]`).forEach(x=>x.classList.add('off'))}
+
+const h=location.hash.slice(1);
+init().then(()=>{if(h.startsWith('edit:'))showEditor(h.slice(5));else goHome()});
+</script></body></html>

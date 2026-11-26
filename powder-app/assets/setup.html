@@ -1,0 +1,187 @@
+<!doctype html>
+<html class="theme__dark">
+<head>
+<meta charset="utf-8">
+<title>Rewind setup</title>
+<style>
+  :root { --bg:#131318; --panel:#1c1c22; --line:#2c2c34; --text:#f2f2f4; --muted:#9a9aa6; --accent:#cf0; --accent2:#a35cf7; }
+  * { box-sizing:border-box }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--text); font:14px/1.45 "Segoe UI Variable Text","Segoe UI",system-ui,sans-serif; user-select:none; overflow:hidden }
+  body { display:flex; flex-direction:column }
+  .bar { flex:none; height:56px; display:flex; align-items:center; padding:18px 40px 0 }
+  .bar svg { height:22px; width:auto; color:#fff }
+  .bar .sp { flex:1 }
+  .win { width:44px; height:32px; border:0; background:transparent; color:var(--muted); font-size:16px; cursor:pointer; border-radius:6px }
+  .win:hover { background:#ffffff14; color:#fff }
+  .win.x:hover { background:#e81123; color:#fff }
+  main { padding:10px 40px 0; flex:1; min-height:0; overflow-y:auto; display:flex; flex-direction:column }
+  main::-webkit-scrollbar { width:10px } main::-webkit-scrollbar-thumb { background:#ffffff22; border-radius:9px }
+  h1 { font-size:26px; margin:6px 0 6px; font-weight:800; letter-spacing:-.01em }
+  p.lead { color:var(--muted); margin:0 0 22px; max-width:620px }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin-bottom:14px }
+  .card h2 { font-size:15px; margin:0 0 10px; font-weight:700 }
+  .opt { display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:10px; border:1px solid var(--line); margin-top:8px; cursor:pointer }
+  .opt.sel { border-color:var(--accent); background:#ccff000d }
+  .opt .dot { width:16px; height:16px; border-radius:50%; border:2px solid var(--muted); flex:none }
+  .opt.sel .dot { border-color:var(--accent); background:radial-gradient(var(--accent) 45%, transparent 50%) }
+  .opt .k { font-weight:600 } .opt .p { color:var(--muted); font-size:12px; word-break:break-all }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:12px }
+  button.b { border:0; border-radius:999px; padding:10px 18px; font:600 14px inherit; font-family:inherit; cursor:pointer; background:#2e2e36; color:var(--text) }
+  button.b:hover { background:#3a3a44 }
+  button.b.primary { background:var(--accent); color:#111 }
+  button.b.primary:hover { filter:brightness(1.08) }
+  button.b:disabled { opacity:.4; cursor:default; filter:none }
+  .muted { color:var(--muted); font-size:13px }
+  .grow { flex:1 }
+  .foot { flex:none; display:flex; justify-content:flex-end; gap:10px; padding:14px 40px 22px; border-top:1px solid var(--line); background:var(--bg) }
+  .prog { height:8px; background:#2a2a32; border-radius:99px; overflow:hidden; margin:14px 0 8px }
+  .prog i { display:block; height:100%; width:0; background:linear-gradient(90deg,var(--accent2),var(--accent)); border-radius:99px; transition:width .25s }
+  .prog.ind i { width:35%; animation:ind 1.2s ease-in-out infinite }
+  @keyframes ind { 0% { margin-left:-35% } 100% { margin-left:100% } }
+  .err { background:#ff4d4d14; border:1px solid #ff4d4d55; color:#ffb3b3; border-radius:10px; padding:12px 14px; white-space:pre-wrap; font-size:13px; user-select:text; max-height:160px; overflow:auto }
+  .wait { display:inline-flex; align-items:center; gap:8px }
+  .spin { width:14px; height:14px; border:2px solid #fff3; border-top-color:var(--accent); border-radius:50%; animation:sp 0.8s linear infinite }
+  @keyframes sp { to { transform:rotate(360deg) } }
+  .hidden { display:none !important }
+  ul.steps { margin:8px 0 0; padding-left:18px; color:var(--muted) } ul.steps li { margin:3px 0 }
+</style>
+</head>
+<body>
+<div class="bar"><span id="logo">__LOGO__</span></div>
+<main>
+  <!-- choose -->
+  <section id="choose">
+    <h1>Install Rewind</h1>
+    <p class="lead">Rewind is a community rebuild of Powder: faster, lighter, with custom game support. Setup downloads everything it needs, including the parts of Powder it still uses, so you don't need Powder installed.</p>
+    <div class="card">
+      <h2>Install location</h2>
+      <div class="opt sel" style="cursor:default"><span class="dot"></span><div class="grow"><div class="p" id="loc" style="font-size:13px;color:var(--text)"></div></div><button class="b" onclick="send('location')">Change…</button></div>
+    </div>
+    <div class="card">
+      <h2>Setup will</h2>
+      <ul class="steps">
+        <li id="srcLine">download Powder's recorder, AI and game files</li>
+        <li>download ONNX Runtime and DirectML from Microsoft, plus PaddleOCR text models, for <b>Add Custom Game</b> (about 50 MB)</li>
+        <li>add Rewind to the Start menu, the desktop and Apps &amp; features (to uninstall it)</li>
+      </ul>
+      <div class="row"><a href="#" class="muted" id="moreLink" onclick="more=!more; render(); return false">Other options</a></div>
+      <div id="moreBox" class="hidden">
+        <div class="muted" style="margin-top:8px">Copy from a Powder folder on this PC instead of downloading:</div>
+        <div id="found"></div>
+        <div class="row">
+          <button class="b" onclick="browse()">Choose a Powder folder…</button>
+          <button class="b" id="dlBtn" onclick="send('select','')">Download instead</button>
+          <button class="b" onclick="send('steam'); waiting=true; render()">Get Powder via Steam</button>
+        </div>
+        <div class="row hidden" id="waitRow"><span class="wait muted"><span class="spin"></span><span id="waitMsg">Waiting for Powder to finish installing…</span></span></div>
+      </div>
+      <div class="row"><span class="muted" id="browseMsg"></span><span id="browseMsg2" class="hidden"></span></div>
+    </div>
+  </section>
+
+  <!-- working -->
+  <section id="working" class="hidden">
+    <h1>Setting up Rewind…</h1>
+    <p class="lead">This takes a minute or two. You can keep using your PC.</p>
+    <div class="card">
+      <h2 id="step">Starting</h2>
+      <div class="prog" id="prog"><i id="bar"></i></div>
+      <div class="muted" id="detail">&nbsp;</div>
+    </div>
+  </section>
+
+  <!-- done -->
+  <section id="done" class="hidden">
+    <h1>Rewind is ready</h1>
+    <p class="lead">Open it from the Start menu or the desktop shortcut. To add your own music, drop tracks into <b>%LOCALAPPDATA%\Rewind\music</b>.</p>
+  </section>
+
+  <!-- error -->
+  <section id="error" class="hidden">
+    <h1>Setup didn't finish</h1>
+    <p class="lead">Nothing was lost. Fix the problem below if you can (often the internet connection or a full drive), then try again.</p>
+    <div class="err" id="errMsg"></div>
+  </section>
+
+
+</main>
+<div class="foot">
+    <button class="b" id="closeBtn" onclick="send('close')">Cancel</button>
+    <button class="b primary" id="goBtn" onclick="go()">Set up Rewind</button>
+  </div>
+
+<script>
+  let S = null, waiting = false, more = false
+  const $ = id => document.getElementById(id)
+  // Buttons talk to Rewind through the webview's message channel; the window pushes the state back
+  // with __setState. (In a plain browser, for testing, the same goes over HTTP.)
+  const native = !!(window.ipc && window.ipc.postMessage)
+  function send(cmd, arg) {
+    if (native) { window.ipc.postMessage('setup:' + JSON.stringify({ cmd, arg: arg || '' })); return Promise.resolve({}) }
+    return fetch('/cmd', { method: 'POST', body: JSON.stringify({ cmd, arg: arg || '' }) }).then(r => r.json()).catch(() => ({})).then(r => { poll(); return r })
+  }
+  window.__setState = st => { S = st; render() }
+  function browse() { send('browse') }
+  function go() {
+    if (!S) return
+    send(S.phase === 'done' ? 'launch' : 'start')
+  }
+  function label(k) { return k === 'steam' ? 'Powder (Steam)' : k === 'installed' ? 'Powder (installed)' : 'Powder folder' }
+  function render() {
+    if (!S) return
+    const ph = S.phase
+    for (const id of ['choose', 'working', 'done', 'error']) $(id).classList.toggle('hidden', id !== ph)
+    $('browseMsg').textContent = S.browse_msg || ''; $('browseMsg2').textContent = S.browse_msg || ''
+    if (ph === 'choose') {
+      $('loc').textContent = S.location || ''
+      const mb = S.release_size ? ' (about ' + Math.round(S.release_size / 1048576) + ' MB)' : ''
+      $('srcLine').innerHTML = S.selected
+        ? 'copy Powder\'s recorder, AI and game files from <b>' + S.selected.replace(/</g, '&lt;') + '</b> (no download needed)'
+        : (S.baseReady ? 'keep the Powder files already installed' : S.bundled ? 'unpack Powder\'s recorder, AI and game files (included in this download)' : 'download Powder\'s recorder, AI and game files' + mb + ', keep the parts Rewind uses and delete the rest')
+      $('moreBox').classList.toggle('hidden', !more)
+      $('moreLink').textContent = more ? 'Hide other options' : 'Other options'
+      $('waitRow').classList.toggle('hidden', !(waiting || S.auto_start))
+      if (S.steam_msg) $('waitMsg').textContent = S.steam_msg
+      $('dlBtn').classList.toggle('hidden', !S.selected)
+      const list = S.found.slice()
+      if (S.selected && !list.some(f => f.path === S.selected)) list.push({ kind: 'folder', path: S.selected })
+      const html = list.map(f => `<div class="opt ${f.path === S.selected ? 'sel' : ''}" data-p="${encodeURIComponent(f.path)}"><span class="dot"></span><div><div class="k">${label(f.kind)}</div><div class="p">${f.path.replace(/</g, '&lt;')}</div></div></div>`).join('')
+      if ($('found').innerHTML !== html) $('found').innerHTML = html
+      if (S.release_error && !S.selected && !S.baseReady && !S.bundled) $('browseMsg').textContent = "Can't reach the download right now (check your internet). Setup will try again when you click Install."
+      $('goBtn').textContent = 'Install Rewind'
+      $('goBtn').disabled = false
+      $('goBtn').classList.remove('hidden')
+      $('closeBtn').textContent = 'Cancel'
+    } else if (ph === 'working') {
+      $('step').textContent = S.step || 'Working'
+      $('detail').innerHTML = S.detail || '&nbsp;'
+      $('prog').classList.toggle('ind', !(S.progress >= 0))
+      $('bar').style.width = S.progress >= 0 ? (S.progress * 100).toFixed(1) + '%' : ''
+      $('goBtn').classList.add('hidden')
+      $('closeBtn').textContent = 'Cancel'
+    } else if (ph === 'done') {
+      $('goBtn').classList.remove('hidden'); $('goBtn').disabled = false; $('goBtn').textContent = 'Open Rewind'
+      $('closeBtn').textContent = 'Close'
+    } else if (ph === 'error') {
+      $('errMsg').textContent = S.error || 'Unknown error'
+      $('goBtn').classList.remove('hidden'); $('goBtn').disabled = false; $('goBtn').textContent = 'Try again'
+      $('closeBtn').textContent = 'Close'
+    }
+  }
+  document.addEventListener('click', e => {
+    const o = e.target.closest('.opt'); if (!o) return
+    send('select', decodeURIComponent(o.dataset.p))
+  })
+  let busy = false, fails = 0
+  async function poll() {
+    if (busy) return
+    busy = true
+    const ac = new AbortController(); const t = setTimeout(() => ac.abort(), 5000)
+    try { S = await (await fetch('/state', { signal: ac.signal, cache: 'no-store' })).json(); fails = 0; render() }
+    catch (e) { if (++fails === 4) { $('browseMsg').textContent = 'Setup isn\'t responding. Close this window and open Rewind.exe again.' } }
+    finally { clearTimeout(t); busy = false }
+  }
+  if (!native) { poll(); setInterval(poll, 700) } else { window.ipc.postMessage('setup:{"cmd":"ready","arg":""}') }
+</script>
+</body>
+</html>

@@ -1,0 +1,216 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Powder-RS</title>
+<style>
+:root{--bg:#0f1115;--panel:#181b22;--panel2:#1f232c;--line:#2a2f3a;--txt:#dfe3ea;--dim:#8a93a3;--acc:#4ea1ff;--ok:#3ccf7a;--bad:#ff6b6b;--warn:#f5b941}
+*{box-sizing:border-box}body{margin:0;font:13px system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--txt)}
+header{display:flex;align-items:center;gap:6px;padding:10px 18px;background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+header b{font-size:16px;margin-right:18px}header b span{color:var(--acc)}
+nav a{padding:7px 14px;border-radius:8px;color:var(--dim);cursor:pointer;text-decoration:none}nav a.on{background:var(--panel2);color:var(--txt)}nav a:hover{color:var(--txt)}
+#recdot{margin-left:auto;display:flex;gap:10px;align-items:center;color:var(--dim)}.dot{width:10px;height:10px;border-radius:50%;background:#555;display:inline-block}.dot.rec{background:var(--bad);animation:blink 1s infinite}.dot.buf{background:var(--ok)}
+@keyframes blink{50%{opacity:.3}}
+main{padding:18px 22px}h2{font-size:15px;margin:0 0 12px}h3{font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em;margin:18px 0 8px}
+select,input,button,textarea{font:inherit;color:var(--txt);background:#11141a;border:1px solid var(--line);border-radius:7px;padding:7px 9px}
+button{cursor:pointer;background:var(--panel2)}button:hover{border-color:#3a4150}button.primary{background:var(--acc);border-color:var(--acc);color:#fff}button.danger{background:#3a1d22;border-color:#5a2a31}
+button:disabled{opacity:.45;cursor:default}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0}.grow{flex:1}.dim{color:var(--dim)}.small{font-size:12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:pointer}.card:hover{border-color:#3a4150}
+.card .th{aspect-ratio:16/9;background:#000 center/cover no-repeat}.card .meta{padding:8px 10px}.card .meta b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.badge{display:inline-block;font-size:11px;padding:2px 7px;border-radius:20px;background:var(--panel2);color:var(--dim);margin-right:4px}.badge.g{background:#173252;color:#9cc9ff}.badge.e{background:#163a29;color:#8be0b0}
+.split{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:18px}
+video{width:100%;background:#000;border-radius:10px;max-height:62vh}
+#tl{position:relative;height:30px;background:var(--panel);border:1px solid var(--line);border-radius:6px;margin-top:8px;cursor:pointer}
+#tl .m{position:absolute;top:4px;width:4px;height:20px;border-radius:2px;background:var(--acc);transform:translateX(-2px)}#tl .m.bm{background:var(--warn)}
+#tl .ph{position:absolute;top:0;bottom:0;width:2px;background:#fff}#tl .sel{position:absolute;top:0;bottom:0;background:rgba(78,161,255,.18)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+.ev{display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--line)}.ev:last-child{border:0}.ev .t{font-family:ui-monospace,monospace;color:var(--dim);width:64px;cursor:pointer}.ev .n{flex:1;cursor:pointer}
+.ev button{padding:4px 8px;font-size:12px}
+#jobs{position:fixed;right:16px;bottom:16px;width:340px;display:flex;flex-direction:column;gap:8px;z-index:20}
+.job{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;box-shadow:0 6px 20px rgba(0,0,0,.4)}.job .bar{height:6px;background:#11141a;border-radius:3px;overflow:hidden;margin-top:6px}.job .bar div{height:100%;background:var(--acc)}
+.job.err{border-color:#5a2a31}.job.done{border-color:#24533a}.job a{color:var(--acc);cursor:pointer}
+.big{font-size:28px;font-family:ui-monospace,monospace}.kv{display:grid;grid-template-columns:180px 1fr;gap:8px 12px;align-items:center}
+.list{max-height:360px;overflow:auto}.chk{display:flex;gap:8px;align-items:center;padding:6px 4px;border-bottom:1px solid var(--line)}.chk input{width:auto}
+.kv input[type=checkbox]{justify-self:start;width:auto}.empty{color:var(--dim);padding:30px;text-align:center;border:1px dashed var(--line);border-radius:10px}
+</style></head><body>
+<header><b>Powder<span>-RS</span></b>
+<nav><a data-t="library" class="on">Library</a><a data-t="record">Record</a><a data-t="montage">Montage</a><a href="/games">Games</a><a data-t="settings">Settings</a></nav>
+<div id="recdot"><span class="dot" id="dot"></span><span id="dottxt">idle</span></div></header>
+<main>
+<!-- LIBRARY -->
+<section id="t-library">
+  <div id="libgrid">
+    <div class="row"><h2 class="grow">Library</h2><input id="libq" placeholder="search" oninput="renderLib()"><select id="libf" onchange="renderLib()"><option value="">all</option><option value="analyzed">analysed</option><option value="todo">not analysed</option><option value="recorder">recordings</option><option value="clip">clips</option><option value="montage">montages</option></select><button onclick="loadLib()">Refresh</button></div>
+    <div class="row"><input id="dlurl" class="grow" placeholder="Download a VOD or clip: paste a Twitch / YouTube / Kick link (chat spikes are added when chat replay is available)"><button onclick="downloadUrl()">Download</button></div>
+    <div class="grid" id="grid"></div>
+  </div>
+  <div id="libdetail" style="display:none">
+    <div class="row"><button onclick="closeDetail()">&larr; Library</button><h2 class="grow" id="dname" style="margin:0"></h2><button onclick="reveal(cur.path)">Show in folder</button></div>
+    <div class="split">
+      <div>
+        <video id="player" controls preload="metadata"></video>
+        <div id="tl"><div class="sel" id="tlsel"></div><div class="ph" id="ph"></div></div>
+        <div class="row"><button onclick="setIn()">Set in [I]</button><button onclick="setOut()">Set out [O]</button><span class="dim" id="inout"></span><span class="grow"></span>
+          <button onclick="exportRange(false)">Export clip</button><button onclick="exportRange(true)">Export vertical</button><button onclick="bookmark()">Bookmark here [B]</button></div>
+      </div>
+      <div>
+        <div class="panel">
+          <div class="row"><select id="dgame" class="grow"></select><select id="dfps"><option value="default">game rate</option><option>10</option><option>30</option><option>60</option><option value="native">native</option></select><button class="primary" onclick="analyze()">Analyse</button></div>
+          <div class="small dim" id="dstate"></div>
+          <h3>Events</h3><div id="evlist" class="list"></div>
+          <h3>Audio &amp; speech</h3>
+          <div class="row"><button onclick="audioPeaks()">Find loudness spikes</button><button onclick="transcribe()">Transcribe</button></div>
+          <div class="row"><input id="kw" class="grow" placeholder="keywords: clutch, no way, let's go"><button onclick="keywords()">Find</button></div>
+          <div id="trans" class="list small" style="max-height:160px"></div>
+          <div class="row" style="margin-top:10px"><button onclick="quickMontage()">Montage from this video</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- RECORD -->
+<section id="t-record" style="display:none">
+  <h2>Recorder</h2>
+  <div class="split"><div class="panel">
+    <div class="row"><div class="grow"><div class="big" id="rtime">--:--</div><div class="dim" id="rinfo"></div></div></div>
+    <div class="row" style="margin-top:14px">
+      <button class="primary" id="brec" onclick="rec('toggle')">Start recording</button>
+      <button id="bbm" onclick="rec('bookmark')">Bookmark</button>
+      <button id="bbuf" onclick="toggleBuffer()">Start replay buffer</button>
+      <button id="bsave" onclick="rec('save-replay')">Save replay</button>
+    </div>
+    <div class="row"><span class="dim">Game</span><select id="rgame" onchange="rec('set-game',{game:this.value})"></select><span class="dim small" id="rdet"></span></div>
+    <div class="err small" id="rerr" style="color:var(--bad)"></div>
+    <h3>Hotkeys</h3><div class="small dim" id="rhot"></div>
+  </div>
+  <div class="panel"><h3 style="margin-top:0">Saved</h3><div id="rsaved" class="small"></div></div></div>
+</section>
+<!-- MONTAGE -->
+<section id="t-montage" style="display:none">
+  <h2>Auto-montage</h2>
+  <div class="split"><div class="panel">
+    <h3 style="margin-top:0">Videos (analysed / bookmarked)</h3><div id="mlist" class="list"></div>
+    <div id="mresult" style="margin-top:14px"></div>
+  </div>
+  <div class="panel"><div class="kv">
+    <span>Music</span><select id="mmusic"><option value="">none</option></select>
+    <span>Length</span><select id="mlen"><option value="0">match music (or 60s)</option><option value="15">15 s</option><option value="30">30 s</option><option value="60">60 s</option><option value="90">90 s</option><option value="120">2 min</option><option value="180">3 min</option></select>
+    <span>Format</span><select id="mfmt"><option value="h">16:9 landscape</option><option value="v">9:16 vertical (Shorts/TikTok)</option></select>
+    <span>Resolution</span><select id="mres"><option>720</option><option selected>1080</option><option>1440</option><option>2160</option></select>
+    <span>Frame rate</span><select id="mfps"><option>30</option><option selected>60</option></select>
+    <span>Effects</span><select id="mfx"><option value="1">slow-mo, zoom, shake (Powder bundles)</option><option value="0">clean cuts</option></select>
+    <span>Music volume</span><input type="range" id="mmv" min="0" max="1.5" step="0.05" value="0.8">
+    <span>Game volume</span><input type="range" id="mgv" min="0" max="1.5" step="0.05" value="0.6">
+  </div>
+  <div class="row" style="margin-top:14px"><button class="primary grow" onclick="makeMontage()">Create montage</button></div>
+  <div class="small dim">Picks the highest-scoring moments (event scores from each game), applies Powder's effect bundles and fades, mixes music, and saves to your montage folder.</div>
+  </div></div>
+</section>
+<!-- SETTINGS -->
+<section id="t-settings" style="display:none">
+  <h2>Settings</h2>
+  <div class="split"><div class="panel"><div class="kv" id="sform"></div>
+    <div class="row" style="margin-top:14px"><button class="primary" onclick="saveSettings()">Save</button><span class="dim" id="ssaved"></span></div></div>
+    <div class="panel"><h3 style="margin-top:0">Encoders on this PC</h3><div id="encs" class="small dim">checking...</div>
+      <h3>About</h3><div class="small dim">Powder-RS: open Rust rewrite of Powder's recorder, analysis, clips and montages, with automatic support for new games (Games tab).</div></div></div>
+</section>
+</main>
+<div id="jobs"></div>
+<script>
+const $=id=>document.getElementById(id);
+const api=(p,o)=>fetch(p,o).then(r=>r.json()).then(j=>{if(j&&j.error)throw new Error(j.error);return j});
+const post=(p,b)=>api(p,{method:'POST',body:JSON.stringify(b||{})});
+const fmt=t=>{if(t==null||isNaN(t))return'--:--';t=Math.max(0,t);const h=Math.floor(t/3600),m=Math.floor(t%3600/60),s=(t%60).toFixed(1);return(h?h+':'+String(m).padStart(2,'0'):m)+':'+s.padStart(4,'0')};
+let lib=[],cur=null,games=[],inP=null,outP=null,seenJobs={};
+function tab(t){document.querySelectorAll('nav a[data-t]').forEach(a=>a.classList.toggle('on',a.dataset.t===t));document.querySelectorAll('main>section').forEach(s=>s.style.display=s.id==='t-'+t?'block':'none');
+ location.hash=t;if(t==='library')loadLib();if(t==='montage')loadMontage();if(t==='settings')loadSettings();if(t==='record')recStatus()}
+document.querySelectorAll('nav a[data-t]').forEach(a=>a.onclick=()=>tab(a.dataset.t));
+async function loadGames(){const g=await api('/api/games');games=g.games.filter(x=>!x.id.startsWith('_'))}
+function gameOpts(sel){return '<option value="">- game -</option>'+games.map(g=>`<option value="${g.id}" ${g.id===sel?'selected':''}>${g.name} (${g.id})</option>`).join('')}
+// ---------------- library
+async function loadLib(){lib=await api('/api/library');renderLib()}
+function renderLib(){const q=$('libq').value.toLowerCase(),f=$('libf').value;
+ const items=lib.filter(v=>(!q||v.name.toLowerCase().includes(q)||(v.sidecar.game||'').toLowerCase().includes(q))&&(!f||(f==='analyzed'&&v.sidecar.analyzed)||(f==='todo'&&!v.sidecar.analyzed)||v.sidecar.source===f));
+ $('grid').innerHTML=items.map(v=>{const n=v.sidecar.events.length,b=v.sidecar.bookmarks.length;return `<div class="card" onclick="openVideo('${v.id}')"><div class="th" style="background-image:url('/api/library/thumb?id=${v.id}')"></div><div class="meta"><b title="${v.name}">${v.name}</b>
+ ${v.sidecar.game?`<span class="badge g">${v.sidecar.game}</span>`:''}${n?`<span class="badge e">${n} events</span>`:''}${b?`<span class="badge">${b} bookmarks</span>`:''}${v.sidecar.source?`<span class="badge">${v.sidecar.source}</span>`:''}
+ <div class="small dim">${new Date(v.modified*1000).toLocaleString()} &middot; ${(v.size/1e6).toFixed(0)} MB</div></div></div>`}).join('')||'<div class="empty">No videos found. Add folders in Settings, record something, or download a VOD.</div>'}
+async function openVideo(id){await loadLib();cur=lib.find(v=>v.id===id);if(!cur)return;$('libgrid').style.display='none';$('libdetail').style.display='block';$('dname').textContent=cur.name;
+ $('player').src='/api/library/video?id='+id;$('trans').innerHTML='';loadTrans();inP=outP=null;$('dgame').innerHTML=gameOpts(cur.sidecar.game);$('dgame').onchange=()=>post('/api/library/set-game',{id,game:$('dgame').value}).then(()=>refreshCur());renderDetail()}
+async function refreshCur(){if(!cur)return;await loadLib();cur=lib.find(v=>v.id===cur.id);renderDetail()}
+function closeDetail(){$('player').pause();$('libdetail').style.display='none';$('libgrid').style.display='block';cur=null;loadLib()}
+function allMarks(){if(!cur)return[];return[...cur.sidecar.events.map(e=>({...e,kind:'ev'})),...cur.sidecar.bookmarks.map(t=>({name:'bookmark',display_name:'Bookmark',time_sec:t,kind:'bm'}))].sort((a,b)=>a.time_sec-b.time_sec)}
+function renderDetail(){const sc=cur.sidecar;$('dstate').textContent=sc.analyzed?`analysed${sc.game?' as '+sc.game:''} - ${sc.events.length} events`:'not analysed yet - pick the game and click Analyse';
+ const ms=allMarks();$('evlist').innerHTML=ms.map(e=>`<div class="ev"><span class="t" onclick="seek(${e.time_sec})">${fmt(e.time_sec)}</span><span class="n" onclick="seek(${e.time_sec})">${e.kind==='bm'?'&#9733; ':''}${e.display_name||e.name}</span>
+ <button onclick="clipAround(${e.time_sec},'${e.name}',false)">Clip</button><button onclick="clipAround(${e.time_sec},'${e.name}',true)" title="vertical">9:16</button><button onclick="rmMark('${e.kind}','${e.name}',${e.time_sec})" title="remove">&times;</button></div>`).join('')||'<div class="dim small">no events yet</div>';drawTl()}
+function drawTl(){const d=$('player').duration;const tl=$('tl');tl.querySelectorAll('.m').forEach(x=>x.remove());if(!d||!cur)return;
+ allMarks().forEach(e=>{const m=document.createElement('div');m.className='m'+(e.kind==='bm'?' bm':'');m.style.left=(100*e.time_sec/d)+'%';m.title=fmt(e.time_sec)+' '+(e.display_name||e.name);tl.appendChild(m)});
+ const s=$('tlsel');if(inP!=null&&outP!=null){s.style.left=(100*inP/d)+'%';s.style.width=(100*(outP-inP)/d)+'%'}else s.style.width=0}
+$('player').addEventListener('loadedmetadata',drawTl);$('player').addEventListener('timeupdate',()=>{const d=$('player').duration;if(d)$('ph').style.left=(100*$('player').currentTime/d)+'%'});
+$('tl').onclick=e=>{const r=$('tl').getBoundingClientRect();const d=$('player').duration;if(d)seek(d*(e.clientX-r.left)/r.width)};
+function seek(t){$('player').currentTime=Math.max(0,t-1);$('player').play()}
+function setIn(){inP=$('player').currentTime;if(outP!=null&&outP<=inP)outP=null;upIO()}function setOut(){outP=$('player').currentTime;if(inP!=null&&outP<=inP)inP=null;upIO()}
+function upIO(){$('inout').textContent=`${inP!=null?fmt(inP):'--'} -> ${outP!=null?fmt(outP):'--'}`;drawTl()}
+document.addEventListener('keydown',e=>{if(!cur||e.target.tagName==='INPUT'||e.target.tagName==='SELECT')return;if(e.key==='i')setIn();if(e.key==='o')setOut();if(e.key==='b')bookmark()});
+async function exportRange(v){if(inP==null||outP==null)return alert('Set in and out points first');const j=await post('/api/clip',{id:cur.id,start:inP,end:outP,vertical:v,label:'custom'});watch(j.job)}
+async function clipAround(t,name,v){const j=await post('/api/clip',{id:cur.id,start:t-6,end:t+3,vertical:v,label:name});watch(j.job)}
+async function bookmark(){await post('/api/library/bookmark',{id:cur.id,time:$('player').currentTime});refreshCur()}
+async function rmMark(kind,name,t){if(kind==='bm')await post('/api/library/bookmark',{id:cur.id,time:t,remove:true});else await post('/api/library/remove-event',{id:cur.id,name,time:t});refreshCur()}
+async function analyze(){if(!$('dgame').value)return alert('Choose the game first (or add it in the Games tab)');try{const j=await post('/api/library/analyze',{id:cur.id,game:$('dgame').value,fps:$('dfps').value});watch(j.job,()=>refreshCur())}catch(e){alert(e.message)}}
+async function audioPeaks(){const j=await post('/api/library/audio-peaks',{id:cur.id});watch(j.job,()=>refreshCur())}
+async function transcribe(){try{const j=await post('/api/library/transcribe',{id:cur.id});watch(j.job,()=>{refreshCur();loadTrans()})}catch(e){alert(e.message)}}
+async function keywords(){try{const r=await post('/api/library/keywords',{id:cur.id,keywords:$('kw').value});refreshCur()}catch(e){alert(e.message)}}
+async function loadTrans(){if(!cur)return;const t=await api('/api/library/transcript?id='+cur.id);$('trans').innerHTML=t.map(l=>`<div class="ev"><span class="t" onclick="seek(${l.from})">${fmt(l.from)}</span><span class="n" onclick="seek(${l.from})">${l.text}</span></div>`).join('')}
+async function downloadUrl(){try{const j=await post('/api/download',{url:$('dlurl').value});$('dlurl').value='';watch(j.job,()=>loadLib())}catch(e){alert(e.message)}}
+function quickMontage(){tab('montage');setTimeout(()=>{document.querySelectorAll('#mlist input').forEach(c=>c.checked=c.value===cur?.id)},600)}
+function reveal(p){post('/api/reveal',{path:p})}
+// ---------------- jobs
+const watchers={};function watch(id,cb){seenJobs[id]=true;if(cb)watchers[id]=cb;pollJobs()}
+async function pollJobs(){let js=[];try{js=await api('/api/jobs')}catch(e){}
+ const show=js.filter(j=>seenJobs[j.id]||j.state==='running');show.forEach(j=>{seenJobs[j.id]=true;if(j.state!=='running'&&watchers[j.id]){const cb=watchers[j.id];delete watchers[j.id];cb(j)}});
+ $('jobs').innerHTML=show.slice(0,4).map(j=>{const out=j.result&&(j.result.output||j.result.saved);return `<div class="job ${j.state==='error'?'err':j.state==='done'?'done':''}"><b>${j.title}</b> <span class="dim small">${j.state}</span>
+ <div class="small dim">${j.error||j.message||''}${j.result&&j.result.events!=null?' - '+j.result.events+' events':''}</div>
+ ${j.state==='running'?`<div class="bar"><div style="width:${j.progress<0?100:j.progress*100}%;${j.progress<0?'opacity:.4':''}"></div></div>`:''}
+ ${out?`<div class="small"><a onclick="reveal('${String(out).replace(/\\/g,'\\\\')}')">show file</a> &middot; <a onclick="openOut('${String(out).replace(/\\/g,'\\\\')}')">open in library</a></div>`:''}
+ ${j.state!=='running'?`<div class="small"><a onclick="seenJobs[${j.id}]=false;pollJobs()">dismiss</a></div>`:''}</div>`}).join('')}
+setInterval(pollJobs,1500);
+async function openOut(p){tab('library');await loadLib();const v=lib.find(x=>x.path===p);if(v)openVideo(v.id)}
+// ---------------- recorder
+async function rec(a,extra){try{const r=await post('/api/recorder',{action:a,...(extra||{})});if(r.saved)watch(0);recStatus()}catch(e){$('rerr').textContent=e.message}}
+async function toggleBuffer(){const s=await api('/api/recorder');rec(s.capturing&&!s.recording?'buffer-stop':'buffer-start')}
+let rs={};async function recStatus(){try{rs=await api('/api/recorder')}catch(e){return}
+ if(!S.recorder){try{S=await api('/api/settings')}catch(e){}}if(S.recorder)$('rhot').innerHTML=`Start/stop recording: <b>${S.recorder.hotkeyToggleRecord}</b> &middot; Bookmark: <b>${S.recorder.hotkeyBookmark}</b> &middot; Save replay (last ${S.recorder.replaySeconds}s): <b>${S.recorder.hotkeySaveReplay}</b><br>Change them in Settings. Hotkeys work while you're in game (Windows).`;
+ $('dot').className='dot'+(rs.recording?' rec':rs.capturing?' buf':'');$('dottxt').textContent=rs.recording?'REC '+fmt(rs.recordingSeconds):rs.capturing?'replay buffer':'idle';
+ if(!$('t-record').offsetParent)return;
+ $('rtime').textContent=rs.recording?fmt(rs.recordingSeconds):rs.capturing?'buffer '+fmt(rs.bufferSeconds):'--:--';
+ $('rinfo').textContent=rs.capturing?`${rs.source} - ${rs.encoder}${rs.audio?' - audio: '+rs.audio:' - no audio'}${rs.recording?' - '+rs.bookmarks+' bookmark(s)':''}`:'not capturing';
+ $('brec').textContent=rs.recording?'Stop recording':'Start recording';$('brec').className=rs.recording?'danger':'primary';$('bbm').disabled=!rs.recording;$('bsave').disabled=!rs.capturing;
+ $('bbuf').textContent=rs.capturing&&!rs.recording?'Stop replay buffer':'Start replay buffer';$('bbuf').disabled=rs.recording;
+ if(document.activeElement!==$('rgame'))$('rgame').innerHTML=gameOpts(rs.game);$('rdet').textContent=rs.game?'':'(set processNames in a game\'s game.json for auto-detection)';
+ $('rerr').textContent=rs.error||'';$('rsaved').innerHTML=(rs.lastSaved||[]).map(p=>`<div class="row"><span class="grow">${p.split(/[\\/]/).pop()}</span><button onclick="openOut('${p.replace(/\\/g,'\\\\')}')">Open</button></div>`).join('')||'<span class="dim">nothing yet</span>'}
+setInterval(recStatus,1000);
+// ---------------- montage
+async function loadMontage(){await loadLib();const items=lib.filter(v=>v.sidecar.events.length||v.sidecar.bookmarks.length);
+ $('mlist').innerHTML=items.map(v=>`<label class="chk"><input type="checkbox" value="${v.id}"><span class="grow">${v.name}</span>${v.sidecar.game?`<span class="badge g">${v.sidecar.game}</span>`:''}<span class="badge e">${v.sidecar.events.length+v.sidecar.bookmarks.length}</span></label>`).join('')||'<div class="empty">Analyse some videos (or add bookmarks) first.</div>';
+ if($('mmusic').options.length<=1){try{const ms=await api('/api/music');$('mmusic').innerHTML='<option value="">none</option>'+ms.map(m=>`<option value="${m.path}">${m.title}${m.artist?' - '+m.artist:''} (${Math.round(m.duration)}s)${m.source==='powder'?' [Powder]':''}</option>`).join('')}catch(e){}}}
+async function makeMontage(){const ids=[...document.querySelectorAll('#mlist input:checked')].map(c=>c.value);if(!ids.length)return alert('Pick at least one video');
+ try{const j=await post('/api/montage',{ids,music:$('mmusic').value,target:+$('mlen').value,vertical:$('mfmt').value==='v',height:+$('mres').value,fps:+$('mfps').value,effects:$('mfx').value==='1',musicVolume:+$('mmv').value,gameVolume:+$('mgv').value});
+ $('mresult').innerHTML='<div class="dim">rendering... (see the progress box)</div>';watch(j.job,jb=>{if(jb.state==='done'){const o=jb.result.output;$('mresult').innerHTML=`<video controls src="/api/file?path=${encodeURIComponent(o)}"></video><div class="row"><span class="grow small dim">${o}</span><button onclick="reveal('${o.replace(/\\/g,'\\\\')}')">Show in folder</button></div>`}else $('mresult').innerHTML=`<div style="color:var(--bad)">${jb.error}</div>`})}catch(e){alert(e.message)}}
+// ---------------- settings
+let S={};const F=[['libraryFolders','Library folders (one per line)','lines'],['recordingsFolder','Recordings folder'],['clipsFolder','Clips folder'],['montagesFolder','Montages folder'],['musicFolders','Music folders (one per line)','lines'],['powderDir','Powder install folder (optional)'],
+ ['autoAnalyze','Analyse recordings automatically','bool'],['analysisFps','Default analysis rate','sel',['default','4','10','30','60','native']],
+ ['recorder.height','Recording height','sel',['720','1080','1440','2160','0']],['recorder.fps','Recording FPS','sel',['30','60','120','144']],['recorder.quality','Quality','sel',['high','medium','low']],['recorder.encoder','Encoder','enc'],
+ ['recorder.monitor','Monitor index (0 = main)','num'],['recorder.captureSystemAudio','Record system audio','bool'],['recorder.captureMicrophone','Record microphone','bool'],['recorder.replaySeconds','Replay buffer length (s, 0 = off)','num'],['recorder.replayAutostart','Start replay buffer with the app','bool'],
+ ['recorder.hotkeyToggleRecord','Hotkey: start/stop recording'],['recorder.hotkeyBookmark','Hotkey: bookmark'],['recorder.hotkeySaveReplay','Hotkey: save replay'],['recorder.audioSyncMs','Audio sync offset (ms)','num']];
+const getP=(o,p)=>p.split('.').reduce((a,k)=>a?.[k],o),setP=(o,p,v)=>{const ks=p.split('.');const l=ks.pop();ks.reduce((a,k)=>a[k],o)[l]=v};
+async function loadSettings(){S=await api('/api/settings');let encOpts='<option value="auto">auto (best working)</option>';
+ try{const e=await api('/api/encoders');encOpts+=e.encoders.map(x=>`<option value="${x.name}">${x.name}${x.works?'':' (not working)'}</option>`).join('');$('encs').innerHTML=e.encoders.map(x=>`<div>${x.works?'&#10003;':'&#10007;'} ${x.name}</div>`).join('')+`<div style="margin-top:6px">auto picks: <b>${e.auto}</b></div>`}catch(e){$('encs').textContent=e.message}
+ $('sform').innerHTML=F.map(([k,l,t,opts])=>{const v=getP(S,k);let inp;
+  if(t==='lines')inp=`<textarea data-k="${k}" data-t="lines" rows="3">${(v||[]).join('\n')}</textarea>`;
+  else if(t==='bool')inp=`<input type="checkbox" data-k="${k}" data-t="bool" ${v?'checked':''} style="width:auto">`;
+  else if(t==='sel')inp=`<select data-k="${k}" data-t="${typeof v==='number'?'num':'str'}">${opts.map(o=>`<option ${String(v)===o?'selected':''}>${o}</option>`).join('')}</select>`;
+  else if(t==='enc')inp=`<select data-k="${k}" data-t="str">${encOpts.replace(`value="${v}"`,`value="${v}" selected`)}</select>`;
+  else inp=`<input data-k="${k}" data-t="${t==='num'?'num':'str'}" value="${v??''}">`;return `<span>${l}</span>${inp}`}).join('')}
+async function saveSettings(){document.querySelectorAll('#sform [data-k]').forEach(el=>{const k=el.dataset.k,t=el.dataset.t;let v;
+ if(t==='lines')v=el.value.split('\n').map(x=>x.trim()).filter(Boolean);else if(t==='bool')v=el.checked;else if(t==='num')v=+el.value;else v=el.value;if(k==='powderDir'&&!v)v=null;setP(S,k,v)});
+ try{await post('/api/settings',S);$('ssaved').textContent='saved';setTimeout(()=>$('ssaved').textContent='',2000)}catch(e){$('ssaved').textContent=e.message}}
+// ---------------- start
+loadGames().then(()=>tab(location.hash.slice(1)||'library'));
+</script></body></html>

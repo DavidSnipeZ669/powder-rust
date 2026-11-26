@@ -1,0 +1,13 @@
+{
+  "name": "Delta Force",
+  "steamId": "2507950",
+  "twitchId": "14336",
+  "urlSlug": "delta-force",
+  "free2play": true,
+  "description": "Delta Force marks the return of the classic first-person shooter, offering large-scale multiplayer combat across land, sea, and air.",
+  "websiteUrl": "https://www.playdeltaforce.com",
+  "calibratedResolution": "NOT YET CALIBRATED - crops are first guesses, run powder-rs studio DF on a screenshot",
+  "authors": [
+    "DavidSnipeZ669"
+  ]
+}

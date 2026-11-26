@@ -1,0 +1,1837 @@
+{
+ "_note": "Event names/icons used by Powder's official games (for Powder UI compatibility). Generated from ai-configs/visual_cues/*/events.json.",
+ "events": [
+  {
+   "name": "victory",
+   "displayName": "Victory",
+   "icon": "overall-victory",
+   "tooltip": "When you win a game.",
+   "eventScore": 15,
+   "automontage": {
+    "primary": false,
+    "secondary": true,
+    "offsetBefore": 3,
+    "offsetAfter": 3,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "defeat",
+   "displayName": "Defeat",
+   "icon": "overall-lose",
+   "tooltip": "When you lose a game.",
+   "eventScore": 5,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "kill",
+   "displayName": "Kill",
+   "icon": "fps-kill",
+   "tooltip": "When you kill an opponent.",
+   "eventScore": 15,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": [
+     "greyDistortionArrow",
+     "veryFastThenSlow",
+     "fastThenSlow",
+     "flashScope",
+     "slowFastSlow",
+     "lensShake",
+     "backToColor"
+    ]
+   }
+  },
+  {
+   "name": "death",
+   "displayName": "Death",
+   "icon": "death",
+   "tooltip": "When you get kill by an imposter.",
+   "eventScore": 5,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "bossKill",
+   "displayName": "Boss Kill",
+   "icon": "boss-kill",
+   "tooltip": "When you defeat a boss.",
+   "eventScore": 15,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "doubleKill",
+   "displayName": "Double Kill",
+   "icon": "double-kill",
+   "tooltip": "When you kill 2 enemies within a short time of one another.",
+   "eventScore": 25,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": [
+     "greyDistortionArrow",
+     "veryFastThenSlow",
+     "fastThenSlow",
+     "flashScope",
+     "slowFastSlow",
+     "lensShake",
+     "backToColor"
+    ]
+   }
+  },
+  {
+   "name": "tripleKill",
+   "displayName": "Triple Kill",
+   "icon": "triple-kill",
+   "tooltip": "When you kill 3 enemies within a short time of one another.",
+   "eventScore": 40,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": [
+     "greyDistortionArrow",
+     "veryFastThenSlow",
+     "fastThenSlow",
+     "flashScope",
+     "slowFastSlow",
+     "lensShake",
+     "backToColor"
+    ]
+   }
+  },
+  {
+   "name": "quadraKill",
+   "displayName": "Quadra Kill",
+   "icon": "quadra-kill",
+   "tooltip": "When you kill 4 enemies within a short time of one another.",
+   "eventScore": 60,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": [
+     "greyDistortionArrow",
+     "veryFastThenSlow",
+     "fastThenSlow",
+     "flashScope",
+     "slowFastSlow",
+     "lensShake",
+     "backToColor"
+    ]
+   }
+  },
+  {
+   "name": "assist",
+   "displayName": "Assist",
+   "icon": "assist",
+   "tooltip": "When you assist a kill.",
+   "eventScore": 10,
+   "automontage": {
+    "primary": false,
+    "secondary": true,
+    "offsetBefore": 3,
+    "offsetAfter": 2,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "knockDown",
+   "displayName": "Knock Down",
+   "icon": "brawl-kill",
+   "tooltip": "When you knock down an opponent.",
+   "eventScore": 10,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": [
+     "greyDistortionArrow",
+     "veryFastThenSlow",
+     "fastThenSlow",
+     "flashScope",
+     "slowFastSlow",
+     "lensShake",
+     "backToColor"
+    ]
+   }
+  },
+  {
+   "name": "pentaKill",
+   "displayName": "Penta Kill",
+   "icon": "penta-kill",
+   "tooltip": "When you kill 5 enemies within a short time of one another.",
+   "eventScore": 20,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": [
+     "greyDistortionArrow",
+     "veryFastThenSlow",
+     "fastThenSlow",
+     "flashScope",
+     "slowFastSlow",
+     "lensShake",
+     "backToColor"
+    ]
+   }
+  },
+  {
+   "name": "recap",
+   "displayName": "Game summary",
+   "icon": "generic-event",
+   "tooltip": "Your game summary",
+   "eventScore": 5,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "squadWipe",
+   "displayName": "Squad Wipe",
+   "icon": "triple-kill",
+   "tooltip": "When you or your teammate wipe a team.",
+   "eventScore": 15,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": [
+     "greyDistortionArrow",
+     "veryFastThenSlow",
+     "fastThenSlow",
+     "flashScope",
+     "slowFastSlow",
+     "lensShake",
+     "backToColor"
+    ]
+   }
+  },
+  {
+   "name": "headshot",
+   "displayName": "Headshot",
+   "icon": "headshot",
+   "tooltip": "When you headshot an opponent.",
+   "eventScore": 15,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": [
+     "greyDistortionArrow",
+     "veryFastThenSlow",
+     "fastThenSlow",
+     "flashScope",
+     "slowFastSlow",
+     "lensShake",
+     "backToColor"
+    ]
+   }
+  },
+  {
+   "name": "deathByBoss",
+   "displayName": "Death by Boss",
+   "icon": "death",
+   "tooltip": "When you die in a boss fight.",
+   "eventScore": 5,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "hexaKill",
+   "displayName": "Hexa Kill",
+   "icon": "hexa-kill",
+   "tooltip": "When you kill 6 enemies within a short time of one another.",
+   "eventScore": 20,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": [
+     "greyDistortionArrow",
+     "veryFastThenSlow",
+     "fastThenSlow",
+     "flashScope",
+     "slowFastSlow",
+     "lensShake",
+     "backToColor"
+    ]
+   }
+  },
+  {
+   "name": "hardcoreDeath",
+   "displayName": "Hardcore Death",
+   "icon": "death",
+   "tooltip": "When you die in hardcore mode.",
+   "eventScore": 10,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "qualified",
+   "displayName": "Qualified",
+   "icon": "round-victory",
+   "tooltip": "When you qualify for the next round.",
+   "eventScore": 10,
+   "automontage": {
+    "primary": false,
+    "secondary": true,
+    "offsetBefore": 3,
+    "offsetAfter": 3,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "top10",
+   "displayName": "Player end in top 10",
+   "icon": "top10",
+   "tooltip": "When the player end the game in the top 10.",
+   "eventScore": 30,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "missionComplete",
+   "displayName": "Mission Complete",
+   "icon": "round-victory",
+   "tooltip": "When you complete a mission.",
+   "eventScore": 15,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "pvpVictory",
+   "displayName": "PVP Victory",
+   "icon": "overall-victory",
+   "tooltip": "When you win a game.",
+   "eventScore": 15,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "pvpDefeat",
+   "displayName": "PVP Defeat",
+   "icon": "overall-lose",
+   "tooltip": "When you lose a game.",
+   "eventScore": 5,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "assistKill",
+   "displayName": "Assist Kill",
+   "icon": "assist",
+   "tooltip": "When you assist on a kill.",
+   "eventScore": 5,
+   "automontage": {
+    "primary": false,
+    "secondary": true,
+    "offsetBefore": 3,
+    "offsetAfter": 3,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "assistKnock",
+   "displayName": "Assist Knock",
+   "icon": "assist",
+   "tooltip": "When you assist on a knock.",
+   "eventScore": 5,
+   "automontage": {
+    "primary": false,
+    "secondary": true,
+    "offsetBefore": 3,
+    "offsetAfter": 3,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "killLeader",
+   "displayName": "Kill Leader",
+   "icon": "kingslayer",
+   "tooltip": "When you become the kill leader.",
+   "eventScore": 30,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "reaperMode",
+   "displayName": "Reaper Mode",
+   "icon": "streak",
+   "tooltip": "When you kill 5 enemies or more within a short time of one another.",
+   "eventScore": 80,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": [
+     "greyDistortionArrow",
+     "veryFastThenSlow",
+     "fastThenSlow",
+     "flashScope",
+     "slowFastSlow",
+     "lensShake",
+     "backToColor"
+    ]
+   }
+  },
+  {
+   "name": "vehiculeDestroyed",
+   "displayName": "Vehicule Destroyed",
+   "icon": "vehicule-destroyed",
+   "tooltip": "When you destroyed an enemy vehicule.",
+   "eventScore": 15,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": [
+     "greyDistortionArrow",
+     "veryFastThenSlow",
+     "fastThenSlow",
+     "flashScope",
+     "slowFastSlow",
+     "lensShake",
+     "backToColor"
+    ]
+   }
+  },
+  {
+   "name": "knifeKill",
+   "displayName": "Knife Kill",
+   "icon": "revenge-kill",
+   "tooltip": "When you kill an enemy hand to hand.",
+   "eventScore": 50,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": [
+     "greyDistortionArrow",
+     "veryFastThenSlow",
+     "fastThenSlow",
+     "flashScope",
+     "slowFastSlow",
+     "lensShake",
+     "backToColor"
+    ]
+   }
+  },
+  {
+   "name": "streak15",
+   "displayName": "Streak 15",
+   "icon": "streak15",
+   "tooltip": "When you kill 15 Zombies in a row without taking damage",
+   "eventScore": 20,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": [
+     "greyDistortionArrow",
+     "veryFastThenSlow",
+     "fastThenSlow",
+     "flashScope",
+     "slowFastSlow",
+     "lensShake",
+     "backToColor"
+    ]
+   }
+  },
+  {
+   "name": "streak30",
+   "displayName": "Streak 30",
+   "icon": "streak30",
+   "tooltip": "When you kill 30 Zombies in a row without taking damage",
+   "eventScore": 25,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": [
+     "greyDistortionArrow",
+     "veryFastThenSlow",
+     "fastThenSlow",
+     "flashScope",
+     "slowFastSlow",
+     "lensShake",
+     "backToColor"
+    ]
+   }
+  },
+  {
+   "name": "streak50",
+   "displayName": "Streak 50",
+   "icon": "streak50",
+   "tooltip": "When you kill 50 Zombies in a row without taking damage",
+   "eventScore": 35,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": [
+     "greyDistortionArrow",
+     "veryFastThenSlow",
+     "fastThenSlow",
+     "flashScope",
+     "slowFastSlow",
+     "lensShake",
+     "backToColor"
+    ]
+   }
+  },
+  {
+   "name": "streak75",
+   "displayName": "Streak 75",
+   "icon": "streak75",
+   "tooltip": "When you kill 75 Zombies in a row without taking damage",
+   "eventScore": 50,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": [
+     "greyDistortionArrow",
+     "veryFastThenSlow",
+     "fastThenSlow",
+     "flashScope",
+     "slowFastSlow",
+     "lensShake",
+     "backToColor"
+    ]
+   }
+  },
+  {
+   "name": "streak100",
+   "displayName": "Streak 100",
+   "icon": "streak100",
+   "tooltip": "When you kill 100 Zombies in a row without taking damage",
+   "eventScore": 100,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": [
+     "greyDistortionArrow",
+     "veryFastThenSlow",
+     "fastThenSlow",
+     "flashScope",
+     "slowFastSlow",
+     "lensShake",
+     "backToColor"
+    ]
+   }
+  },
+  {
+   "name": "streak200",
+   "displayName": "Streak 200",
+   "icon": "streak200",
+   "tooltip": "When you kill 200 Zombies in a row without taking damage",
+   "eventScore": 200,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": [
+     "greyDistortionArrow",
+     "veryFastThenSlow",
+     "fastThenSlow",
+     "flashScope",
+     "slowFastSlow",
+     "lensShake",
+     "backToColor"
+    ]
+   }
+  },
+  {
+   "name": "mk5",
+   "displayName": "Multi Kill x5",
+   "icon": "mk5",
+   "tooltip": "When you kill 5 Zombies rapidly with a Weapon",
+   "eventScore": 200,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": [
+     "greyDistortionArrow",
+     "veryFastThenSlow",
+     "fastThenSlow",
+     "flashScope",
+     "slowFastSlow",
+     "lensShake",
+     "backToColor"
+    ]
+   }
+  },
+  {
+   "name": "mk10",
+   "displayName": "Multi Kill x10",
+   "icon": "mk10",
+   "tooltip": "When you kill 10 Zombies rapidly with a Weapon",
+   "eventScore": 200,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": [
+     "greyDistortionArrow",
+     "veryFastThenSlow",
+     "fastThenSlow",
+     "flashScope",
+     "slowFastSlow",
+     "lensShake",
+     "backToColor"
+    ]
+   }
+  },
+  {
+   "name": "mk15",
+   "displayName": "Multi Kill x15",
+   "icon": "mk15",
+   "tooltip": "When you kill 15 Zombies rapidly with a Weapon",
+   "eventScore": 200,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": [
+     "greyDistortionArrow",
+     "veryFastThenSlow",
+     "fastThenSlow",
+     "flashScope",
+     "slowFastSlow",
+     "lensShake",
+     "backToColor"
+    ]
+   }
+  },
+  {
+   "name": "mk20",
+   "displayName": "Multi Kill x20",
+   "icon": "mk20",
+   "tooltip": "When you kill 20 Zombies rapidly with a Weapon",
+   "eventScore": 200,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": [
+     "greyDistortionArrow",
+     "veryFastThenSlow",
+     "fastThenSlow",
+     "flashScope",
+     "slowFastSlow",
+     "lensShake",
+     "backToColor"
+    ]
+   }
+  },
+  {
+   "name": "mk25",
+   "displayName": "Multi Kill x25",
+   "icon": "mk25",
+   "tooltip": "When you kill 25 Zombies rapidly with a Weapon",
+   "eventScore": 200,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": [
+     "greyDistortionArrow",
+     "veryFastThenSlow",
+     "fastThenSlow",
+     "flashScope",
+     "slowFastSlow",
+     "lensShake",
+     "backToColor"
+    ]
+   }
+  },
+  {
+   "name": "mk30",
+   "displayName": "Multi Kill x30",
+   "icon": "mk30",
+   "tooltip": "When you kill 30 Zombies rapidly with a Weapon",
+   "eventScore": 200,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": [
+     "greyDistortionArrow",
+     "veryFastThenSlow",
+     "fastThenSlow",
+     "flashScope",
+     "slowFastSlow",
+     "lensShake",
+     "backToColor"
+    ]
+   }
+  },
+  {
+   "name": "wallBang",
+   "displayName": "Wall Bang",
+   "icon": "wall-bang",
+   "tooltip": "When you kill an opponent through a wall.",
+   "eventScore": 12,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": [
+     "greyDistortionArrow",
+     "veryFastThenSlow",
+     "fastThenSlow",
+     "flashScope",
+     "slowFastSlow",
+     "lensShake",
+     "backToColor"
+    ]
+   }
+  },
+  {
+   "name": "streak",
+   "displayName": "Streak",
+   "icon": "streak",
+   "tooltip": "When you perform a kill streak.",
+   "eventScore": 20,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": [
+     "greyDistortionArrow",
+     "veryFastThenSlow",
+     "fastThenSlow",
+     "flashScope",
+     "slowFastSlow",
+     "lensShake",
+     "backToColor"
+    ]
+   }
+  },
+  {
+   "name": "backStab",
+   "displayName": "Back Stab",
+   "icon": "revenge-kill",
+   "tooltip": "When you Kill a opponent with a knife in the back.",
+   "eventScore": 20,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": [
+     "greyDistortionArrow",
+     "veryFastThenSlow",
+     "fastThenSlow",
+     "flashScope",
+     "slowFastSlow",
+     "lensShake",
+     "backToColor"
+    ]
+   }
+  },
+  {
+   "name": "nuclear",
+   "displayName": "Nuclear",
+   "icon": "nuclear",
+   "tooltip": "When you perform a streak of 30 kills.",
+   "eventScore": 100,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": [
+     "greyDistortionArrow",
+     "veryFastThenSlow",
+     "fastThenSlow",
+     "flashScope",
+     "slowFastSlow",
+     "lensShake",
+     "backToColor"
+    ]
+   }
+  },
+  {
+   "name": "gameOver",
+   "displayName": "Game Over",
+   "icon": "game-over",
+   "tooltip": "When the atomic bomb is coming.",
+   "eventScore": 25,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": [
+     "greyDistortionArrow",
+     "veryFastThenSlow",
+     "fastThenSlow",
+     "flashScope",
+     "slowFastSlow",
+     "lensShake",
+     "backToColor"
+    ]
+   }
+  },
+  {
+   "name": "heptaKill",
+   "displayName": "Hepta Kill",
+   "icon": "hepta-kill",
+   "tooltip": "When you kill 7 enemies within a short time of one another.",
+   "eventScore": 20,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": [
+     "greyDistortionArrow",
+     "veryFastThenSlow",
+     "fastThenSlow",
+     "flashScope",
+     "slowFastSlow",
+     "lensShake",
+     "backToColor"
+    ]
+   }
+  },
+  {
+   "name": "gulagVictory",
+   "displayName": "Gulag victory",
+   "icon": "ranked",
+   "tooltip": "When you escape from the gulag.",
+   "eventScore": 5,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "winningDefuse",
+   "displayName": "Winning defuse",
+   "icon": "round-victory",
+   "tooltip": "When you defuse the bomb.",
+   "eventScore": 10,
+   "automontage": {
+    "primary": false,
+    "secondary": true,
+    "offsetBefore": 3,
+    "offsetAfter": 3,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "result",
+   "displayName": "Victory",
+   "icon": "overall-victory",
+   "tooltip": "When you end a level with success",
+   "eventScore": 10,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "multikill",
+   "displayName": "Multi Kill",
+   "icon": "triple-kill",
+   "tooltip": "When you kill multiple opponent in a short period of time.",
+   "eventScore": 40,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 4.5,
+    "offsetAfter": 3,
+    "effectTypes": [
+     "greyDistortionArrow",
+     "veryFastThenSlow",
+     "fastThenSlow",
+     "flashScope",
+     "slowFastSlow",
+     "lensShake",
+     "backToColor"
+    ]
+   }
+  },
+  {
+   "name": "normalDeath",
+   "displayName": "Death",
+   "icon": "death",
+   "tooltip": "When you die in combat.",
+   "eventScore": 5,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "levelComplete",
+   "displayName": "Level Complete",
+   "icon": "overall-victory",
+   "tooltip": "When you complete a level.",
+   "eventScore": 15,
+   "automontage": {
+    "primary": false,
+    "secondary": true,
+    "offsetBefore": 8,
+    "offsetAfter": 3,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "stolen",
+   "displayName": "Cashout stolen",
+   "icon": "legendary-loot",
+   "tooltip": "When you steal enemy cash.",
+   "eventScore": 30,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 3.25,
+    "offsetAfter": 2,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "disqualified",
+   "displayName": "Disqualified",
+   "icon": "overall-lose",
+   "tooltip": "When you get disqualified from a game.",
+   "eventScore": 5,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "victoryCrowned",
+   "displayName": "Crowned Victory",
+   "icon": "round-victory",
+   "tooltip": "When you achieve a Victory Royale with the crown.",
+   "eventScore": 50,
+   "automontage": {
+    "primary": false,
+    "secondary": true,
+    "offsetBefore": 3,
+    "offsetAfter": 3,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "busJump",
+   "displayName": "Battle Bus Jump",
+   "icon": "free-fall",
+   "tooltip": "When you jump from the bus.",
+   "eventScore": 5,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "endGame",
+   "displayName": "End Game Ranking",
+   "icon": "generic-event",
+   "tooltip": "When the game is over.",
+   "eventScore": 5,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "top5",
+   "displayName": "Player end in top 5",
+   "icon": "top-5",
+   "tooltip": "When the player end the game in the top 5.",
+   "eventScore": 35,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "areaSecured",
+   "displayName": "Area Secured",
+   "icon": "ranked",
+   "tooltip": "When an area is secured.",
+   "eventScore": 15,
+   "automontage": {
+    "primary": false,
+    "secondary": true,
+    "offsetBefore": 3,
+    "offsetAfter": 3,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "killStreak",
+   "displayName": "Kill Streak",
+   "icon": "kingslayer",
+   "tooltip": "When you make a 10+ killstreak.",
+   "eventScore": 40,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "objectiveComplete",
+   "displayName": "Objective complete",
+   "icon": "gold-medal",
+   "tooltip": "When you complete an objective.",
+   "eventScore": 15,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "cardGameVictory",
+   "displayName": "Victory",
+   "icon": "overall-victory",
+   "tooltip": "When you win a classic game.",
+   "eventScore": 15,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "cardGameDefeat",
+   "displayName": "Defeat",
+   "icon": "overall-lose",
+   "tooltip": "When you lose a classic game.",
+   "eventScore": 5,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "bg1stPlace",
+   "displayName": "BG 1st place",
+   "icon": "overall-victory",
+   "tooltip": "When you win a battleground game.",
+   "eventScore": 15,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "bgOtherPlace",
+   "displayName": "BG between 2nd and 4th",
+   "icon": "round-victory",
+   "tooltip": "When you end a battleground game beetween 2nd and 4th.",
+   "eventScore": 10,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "bgDefeat",
+   "displayName": "BG defeat",
+   "icon": "overall-lose",
+   "tooltip": "When you lose a battleground game.",
+   "eventScore": 5,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "bgElimination",
+   "displayName": "BG elimination",
+   "icon": "brawl-kill",
+   "tooltip": "when you eliminate an opponent from the game.",
+   "eventScore": 5,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "between2ndAnd4th",
+   "displayName": "Between 2nd and 4th",
+   "icon": "round-victory",
+   "tooltip": "When you finish 2nd, 3rd or 4th.",
+   "eventScore": 10,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "p5thOrBelow",
+   "displayName": "5th or below",
+   "icon": "overall-lose",
+   "tooltip": "When you finish 5th or lower.",
+   "eventScore": 5,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "touchdown",
+   "displayName": "Touchdown",
+   "icon": "touchdown",
+   "tooltip": "When a touchdown is scored.",
+   "eventScore": 6,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "fieldGoal",
+   "displayName": "Field Goal",
+   "icon": "field-goal",
+   "tooltip": "When a field goal is scored.",
+   "eventScore": 3,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "conversion",
+   "displayName": "Conversion",
+   "icon": "conversion",
+   "tooltip": "When a conversion is scored.",
+   "eventScore": 2,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "safety",
+   "displayName": "Safety",
+   "icon": "safety",
+   "tooltip": "When a safety is scored.",
+   "eventScore": 2,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "gameEnding",
+   "displayName": "Gaame ending",
+   "icon": "score",
+   "tooltip": "End of a game.",
+   "eventScore": 5,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "monsterKill",
+   "displayName": "Monster Kill",
+   "icon": "boss-kill",
+   "tooltip": "When you defeat a boss.",
+   "eventScore": 100,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 3.5,
+    "offsetAfter": 6,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "monsterCaptured",
+   "displayName": "Monster captured",
+   "icon": "monster-captured",
+   "tooltip": "When you captured a monster.",
+   "eventScore": 120,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 3.5,
+    "offsetAfter": 6,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "monsterWounded",
+   "displayName": "Monster wounded",
+   "icon": "monster-wounded",
+   "tooltip": "When you inflict an injury to a monster.",
+   "eventScore": 30,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2.5,
+    "offsetAfter": 6,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "monsterMounted",
+   "displayName": "Monster mounted",
+   "icon": "monster-mounted",
+   "tooltip": "When you mount on a monster.",
+   "eventScore": 40,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 6,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "unstoppableKill",
+   "displayName": "Unstoppable",
+   "icon": "mk",
+   "tooltip": "When you kill 7 enemies within a short time of one another.",
+   "eventScore": 110,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": [
+     "greyDistortionArrow",
+     "veryFastThenSlow",
+     "fastThenSlow",
+     "flashScope",
+     "slowFastSlow",
+     "lensShake",
+     "backToColor"
+    ]
+   }
+  },
+  {
+   "name": "rankedVictory",
+   "displayName": "Victory (ranked)",
+   "icon": "ranked",
+   "tooltip": "When you win a ranked game.",
+   "eventScore": 40,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "quickVictory",
+   "displayName": "Victory (quick match)",
+   "icon": "overall-victory",
+   "tooltip": "When you win a quick match.",
+   "eventScore": 30,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "rankedTop5",
+   "displayName": "top 5 (ranked)",
+   "icon": "top-5",
+   "tooltip": "When you lose a ranked game.",
+   "eventScore": 20,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "quickTop5",
+   "displayName": "top 5 (quick match)",
+   "icon": "top-5",
+   "tooltip": "When you lose a quick match.",
+   "eventScore": 15,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "rankedDefeat",
+   "displayName": "Defeat (ranked)",
+   "icon": "overall-lose",
+   "tooltip": "When you lose a ranked game.",
+   "eventScore": 10,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "quickDefeat",
+   "displayName": "Defeat (quick match)",
+   "icon": "overall-lose",
+   "tooltip": "When you lose a quick match.",
+   "eventScore": 5,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "gameRecap",
+   "displayName": "Game summary",
+   "icon": "generic-event",
+   "tooltip": "Summary of the game",
+   "eventScore": 10,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "playerGoal",
+   "displayName": "Player Goal",
+   "icon": "sport-scoring",
+   "tooltip": "When you knock an opponent out of the arena.",
+   "eventScore": 10,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "teamGoal",
+   "displayName": "Team Goal",
+   "icon": "sport-scoring",
+   "tooltip": "When you knock an opponent out of the arena.",
+   "eventScore": 10,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "mapComplete",
+   "displayName": "Map  Complete",
+   "icon": "ranked",
+   "tooltip": "When you succesfully achieve a map.",
+   "eventScore": 20,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "save",
+   "displayName": "Save",
+   "icon": "goal-save",
+   "tooltip": "When you prevent your opponents from scoring a goal.",
+   "eventScore": 10,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "epicSave",
+   "displayName": "Epic Save",
+   "icon": "goal-save",
+   "tooltip": "When you prevent your opponents from scoring a goal.",
+   "eventScore": 15,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "demolition",
+   "displayName": "Demolition",
+   "icon": "generic-kill",
+   "tooltip": "When you destroy an opponent.",
+   "eventScore": 5,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "goal",
+   "displayName": "Goal",
+   "icon": "sport-scoring",
+   "tooltip": "When you score a goal.",
+   "eventScore": 10,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "questComplete",
+   "displayName": "Quest Complete",
+   "icon": "round-victory",
+   "tooltip": "When you complete a quest.",
+   "eventScore": 15,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "playerRevived",
+   "displayName": "Player Revived",
+   "icon": "assist",
+   "tooltip": "When a teammate revived you.",
+   "eventScore": 5,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "allyRevived",
+   "displayName": "Ally Revived",
+   "icon": "assist",
+   "tooltip": "When you revived a teammate.",
+   "eventScore": 5,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "pveVictory",
+   "displayName": "PVE Victory",
+   "icon": "generic-event",
+   "tooltip": "When you win a game.",
+   "eventScore": 15,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "criticalDamage",
+   "displayName": "Critical damage",
+   "icon": "burst",
+   "tooltip": "When you do a nice amount of damage.",
+   "eventScore": 20,
+   "automontage": {
+    "primary": true,
+    "secondary": true,
+    "offsetBefore": 3,
+    "offsetAfter": 3,
+    "effectTypes": [
+     "dejavu"
+    ]
+   }
+  },
+  {
+   "name": "combo10Plus",
+   "displayName": "Big hit combo",
+   "icon": "top10",
+   "tooltip": "When you do 10 or more hits combo.",
+   "eventScore": 15,
+   "automontage": {
+    "primary": true,
+    "secondary": true,
+    "offsetBefore": 3,
+    "offsetAfter": 3,
+    "effectTypes": [
+     "SF6greyDistortionArrow"
+    ]
+   }
+  },
+  {
+   "name": "killPVP",
+   "displayName": "PVP Kill",
+   "icon": "generic-kill",
+   "tooltip": "When you sunk another player boat.",
+   "eventScore": 40,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 7,
+    "offsetAfter": 2.5,
+    "effectTypes": [
+     "SNBKillPVP"
+    ]
+   }
+  },
+  {
+   "name": "boarding",
+   "displayName": "Boarding completed",
+   "icon": "generic-event",
+   "tooltip": "When you board an enemy ship.",
+   "eventScore": 15,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "worldEvent",
+   "displayName": "World Event",
+   "icon": "ranked",
+   "tooltip": "When you complete a world event.",
+   "eventScore": 40,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 7,
+    "offsetAfter": 2.5,
+    "effectTypes": [
+     "SNBWorldEvent"
+    ]
+   }
+  },
+  {
+   "name": "contractComplete",
+   "displayName": "Contract complete",
+   "icon": "bronze-medal",
+   "tooltip": "When your complete a contract.",
+   "eventScore": 20,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "comboStreakLeft",
+   "displayName": "Combo Streak Left",
+   "icon": "generic-event",
+   "eventScore": 10,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "comboStreakRight",
+   "displayName": "Combo Streak Right",
+   "icon": "generic-event",
+   "eventScore": 10,
+   "automontage": {
+    "primary": false,
+    "secondary": false,
+    "offsetBefore": 0,
+    "offsetAfter": 0,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "titanKill",
+   "displayName": "Titan Kill",
+   "icon": "kingslayer",
+   "tooltip": "When a Titan is killed.",
+   "eventScore": 25,
+   "automontage": {
+    "primary": false,
+    "secondary": true,
+    "offsetBefore": 3,
+    "offsetAfter": 3,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "loot",
+   "displayName": "Loot",
+   "icon": "legendary-loot",
+   "tooltip": "When a loot is taken.",
+   "eventScore": 5,
+   "automontage": {
+    "primary": false,
+    "secondary": true,
+    "offsetBefore": 2,
+    "offsetAfter": 2,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "multiKill",
+   "displayName": "Multi Kill",
+   "icon": "triple-kill",
+   "tooltip": "When you kill more than 1 opponent.",
+   "eventScore": 25,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 2,
+    "offsetAfter": 5,
+    "effectTypes": [
+     "greyDistortionArrow",
+     "veryFastThenSlow",
+     "fastThenSlow",
+     "flashScope",
+     "slowFastSlow",
+     "lensShake",
+     "backToColor"
+    ]
+   }
+  },
+  {
+   "name": "draw",
+   "displayName": "Draw",
+   "icon": "draw",
+   "tooltip": "When you the game end in a tie.",
+   "eventScore": 10,
+   "automontage": {
+    "primary": true,
+    "secondary": true,
+    "offsetBefore": 3,
+    "offsetAfter": 2,
+    "effectTypes": []
+   }
+  },
+  {
+   "name": "ace",
+   "displayName": "Ace",
+   "icon": "penta-kill",
+   "tooltip": "When you kill all opponent team.",
+   "eventScore": 40,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 4,
+    "offsetAfter": 2,
+    "effectTypes": [
+     "greyDistortionArrow",
+     "veryFastThenSlow",
+     "fastThenSlow",
+     "flashScope",
+     "slowFastSlow",
+     "lensShake",
+     "backToColor"
+    ]
+   }
+  },
+  {
+   "name": "clutch",
+   "displayName": "Clutch",
+   "icon": "clutch",
+   "tooltip": "When you clutch a round.",
+   "eventScore": 20,
+   "automontage": {
+    "primary": true,
+    "secondary": false,
+    "offsetBefore": 3,
+    "offsetAfter": 1,
+    "effectTypes": []
+   }
+  }
+ ]
+}

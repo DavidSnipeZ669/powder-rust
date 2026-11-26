@@ -1,0 +1,403 @@
+{
+  "name": "DF",
+  "description": "Delta Force (2024) - Modern military FPS",
+  "version": "2.0",
+  "resolution": "2560x1440",
+  "fps": 5,
+  "events": [
+    {
+      "name": "victory",
+      "displayName": "Victory",
+      "icon": "overall-victory",
+      "default": true,
+      "tooltip": "When you win a match or complete an objective.",
+      "eventScore": 50,
+      "automontage": {
+        "primary": false,
+        "secondary": true,
+        "offsetBefore": 4,
+        "offsetAfter": 4,
+        "effectTypes": ["zoomInSlow", "colorGradeWarm"]
+      },
+      "detection": {
+        "method": "ocr",
+        "patterns": ["VICTORY", "MISSION SUCCESS", "ROUND WIN"],
+        "confidenceThreshold": 80
+      }
+    },
+    {
+      "name": "defeat",
+      "displayName": "Defeat",
+      "icon": "overall-lose",
+      "default": false,
+      "tooltip": "When you lose a match or fail an objective.",
+      "eventScore": 10,
+      "automontage": {
+        "primary": false,
+        "secondary": false,
+        "offsetBefore": 2,
+        "offsetAfter": 2,
+        "effectTypes": []
+      },
+      "detection": {
+        "method": "ocr",
+        "patterns": ["DEFEAT", "MISSION FAILED", "ROUND LOSS"],
+        "confidenceThreshold": 75
+      }
+    },
+    {
+      "name": "kill",
+      "displayName": "Kill",
+      "icon": "fps-kill",
+      "default": true,
+      "tooltip": "When you eliminate an opponent.",
+      "eventScore": 10,
+      "automontage": {
+        "primary": true,
+        "secondary": false,
+        "offsetBefore": 2,
+        "offsetAfter": 3,
+        "effectTypes": [
+          "greyDistortionArrow",
+          "veryFastThenSlow",
+          "fastThenSlow",
+          "flashScope",
+          "slowFastSlow",
+          "lensShake",
+          "backToColor"
+        ]
+      },
+      "detection": {
+        "method": "ocr",
+        "patterns": ["KILL", "ELIMINATED", "TAKEDOWN"],
+        "confidenceThreshold": 85,
+        "cooldown": 1.5
+      }
+    },
+    {
+      "name": "headshot",
+      "displayName": "Headshot",
+      "icon": "headshot",
+      "default": true,
+      "tooltip": "When you eliminate an opponent with a headshot.",
+      "eventScore": 15,
+      "automontage": {
+        "primary": true,
+        "secondary": false,
+        "offsetBefore": 2,
+        "offsetAfter": 3,
+        "effectTypes": [
+          "greyDistortionArrow",
+          "veryFastThenSlow",
+          "fastThenSlow",
+          "flashScope",
+          "headshotZoom",
+          "lensShake",
+          "backToColor"
+        ]
+      },
+      "detection": {
+        "method": "ocr",
+        "patterns": ["HEADSHOT", "HS", "HEAD SHOT"],
+        "confidenceThreshold": 88,
+        "cooldown": 2.0
+      }
+    },
+    {
+      "name": "preciselongshot",
+      "displayName": "Precise Long Shot",
+      "icon": "headshot",
+      "default": true,
+      "tooltip": "When you eliminate an opponent with a precise long-range shot.",
+      "eventScore": 12,
+      "automontage": {
+        "primary": true,
+        "secondary": false,
+        "offsetBefore": 2,
+        "offsetAfter": 4,
+        "effectTypes": [
+          "greyDistortionArrow",
+          "veryFastThenSlow",
+          "fastThenSlow",
+          "flashScope",
+          "slowZoom",
+          "lensShake",
+          "backToColor"
+        ]
+      },
+      "detection": {
+        "method": "ocr",
+        "patterns": ["PRECISE LONG SHOT"],
+        "confidenceThreshold": 85,
+        "cooldown": 3.0
+      }
+    },
+    {
+      "name": "longshot",
+      "displayName": "Long Shot",
+      "icon": "fps-kill",
+      "default": true,
+      "tooltip": "When you eliminate an opponent with a long-range shot.",
+      "eventScore": 11,
+      "automontage": {
+        "primary": true,
+        "secondary": false,
+        "offsetBefore": 2,
+        "offsetAfter": 3,
+        "effectTypes": [
+          "greyDistortionArrow",
+          "veryFastThenSlow",
+          "fastThenSlow",
+          "flashScope",
+          "slowFastSlow",
+          "lensShake",
+          "backToColor"
+        ]
+      },
+      "detection": {
+        "method": "ocr",
+        "patterns": ["LONG SHOT"],
+        "confidenceThreshold": 85,
+        "cooldown": 2.5
+      }
+    },
+    {
+      "name": "gadgetDestroyed",
+      "displayName": "Gadget Destroyed",
+      "icon": "vehicule-destroyed",
+      "default": true,
+      "tooltip": "When you destroy enemy equipment or gadgets.",
+      "eventScore": 13,
+      "automontage": {
+        "primary": true,
+        "secondary": false,
+        "offsetBefore": 1,
+        "offsetAfter": 2,
+        "effectTypes": [
+          "greyDistortionArrow",
+          "fastThenSlow",
+          "flashScope",
+          "explosionShake",
+          "backToColor"
+        ]
+      },
+      "detection": {
+        "method": "ocr",
+        "patterns": ["GADGET DESTROYED", "DEVICE DESTROYED", "EQUIPMENT DESTROYED"],
+        "confidenceThreshold": 82,
+        "cooldown": 2.0
+      }
+    },
+    {
+      "name": "meleeKill",
+      "displayName": "Melee Kill",
+      "icon": "revenge-kill",
+      "default": true,
+      "tooltip": "When you eliminate an opponent with melee combat.",
+      "eventScore": 18,
+      "automontage": {
+        "primary": true,
+        "secondary": false,
+        "offsetBefore": 1,
+        "offsetAfter": 2,
+        "effectTypes": [
+          "greyDistortionArrow",
+          "veryFastThenSlow",
+          "meleeZoom",
+          "bloodSplatter",
+          "lensShake",
+          "backToColor"
+        ]
+      },
+      "detection": {
+        "method": "ocr",
+        "patterns": ["MELEE KILL", "TAKEDOWN", "KNIFE KILL", "MELEE ELIMINATION"],
+        "confidenceThreshold": 85,
+        "cooldown": 2.0
+      }
+    },
+    {
+      "name": "doubleKill",
+      "displayName": "Double Kill",
+      "icon": "double-kill",
+      "default": true,
+      "tooltip": "When you eliminate 2 enemies in quick succession.",
+      "eventScore": 25,
+      "automontage": {
+        "primary": true,
+        "secondary": false,
+        "offsetBefore": 2,
+        "offsetAfter": 3,
+        "effectTypes": [
+          "greyDistortionArrow",
+          "veryFastThenSlow",
+          "fastThenSlow",
+          "flashScope",
+          "doubleKillZoom",
+          "lensShake",
+          "backToColor"
+        ]
+      },
+      "detection": {
+        "method": "ocr",
+        "patterns": ["DOUBLE KILL", "DOUBLE ELIMINATION"],
+        "confidenceThreshold": 88,
+        "cooldown": 4.0,
+        "window": 3.0
+      }
+    },
+    {
+      "name": "tripleKill",
+      "displayName": "Triple Kill",
+      "icon": "triple-kill",
+      "default": true,
+      "tooltip": "When you eliminate 3 enemies in quick succession.",
+      "eventScore": 40,
+      "automontage": {
+        "primary": true,
+        "secondary": false,
+        "offsetBefore": 2,
+        "offsetAfter": 3,
+        "effectTypes": [
+          "greyDistortionArrow",
+          "veryFastThenSlow",
+          "fastThenSlow",
+          "flashScope",
+          "tripleKillZoom",
+          "lensShake",
+          "backToColor"
+        ]
+      },
+      "detection": {
+        "method": "ocr",
+        "patterns": ["TRIPLE KILL", "TRIPLE ELIMINATION"],
+        "confidenceThreshold": 88,
+        "cooldown": 5.0,
+        "window": 4.0
+      }
+    },
+    {
+      "name": "quadraKill",
+      "displayName": "Quadra Kill",
+      "icon": "quadra-kill",
+      "default": true,
+      "tooltip": "When you eliminate 4 enemies in quick succession.",
+      "eventScore": 60,
+      "automontage": {
+        "primary": true,
+        "secondary": false,
+        "offsetBefore": 2,
+        "offsetAfter": 4,
+        "effectTypes": [
+          "greyDistortionArrow",
+          "veryFastThenSlow",
+          "fastThenSlow",
+          "flashScope",
+          "quadraKillZoom",
+          "intenseLensShake",
+          "backToColor"
+        ]
+      },
+      "detection": {
+        "method": "ocr",
+        "patterns": ["QUADRA KILL", "QUADRUPLE KILL", "QUAD ELIMINATION"],
+        "confidenceThreshold": 88,
+        "cooldown": 6.0,
+        "window": 5.0
+      }
+    },
+    {
+      "name": "reaperMode",
+      "displayName": "Reaper Mode",
+      "icon": "streak",
+      "default": true,
+      "tooltip": "When you eliminate 5+ enemies in quick succession.",
+      "eventScore": 80,
+      "automontage": {
+        "primary": true,
+        "secondary": false,
+        "offsetBefore": 3,
+        "offsetAfter": 5,
+        "effectTypes": [
+          "greyDistortionArrow",
+          "veryFastThenSlow",
+          "fastThenSlow",
+          "flashScope",
+          "reaperZoom",
+          "intenseLensShake",
+          "screenFlash",
+          "backToColor"
+        ]
+      },
+      "detection": {
+        "method": "ocr",
+        "patterns": ["REAPER MODE", "MULTI KILL", "KILLING SPREE", "ULTRA KILL", "MONSTER KILL"],
+        "confidenceThreshold": 88,
+        "cooldown": 8.0,
+        "window": 6.0
+      }
+    },
+    {
+      "name": "squadWipe",
+      "displayName": "Squad Wipe",
+      "icon": "kingslayer",
+      "default": true,
+      "tooltip": "When you eliminate an entire enemy squad.",
+      "eventScore": 30,
+      "automontage": {
+        "primary": true,
+        "secondary": false,
+        "offsetBefore": 2,
+        "offsetAfter": 4,
+        "effectTypes": [
+          "greyDistortionArrow",
+          "veryFastThenSlow",
+          "squadWipeZoom",
+          "intenseLensShake",
+          "screenFlash",
+          "backToColor"
+        ]
+      },
+      "detection": {
+        "method": "ocr",
+        "patterns": ["SQUAD WIPE", "ENEMY SQUAD ELIMINATED", "TEAM WIPE", "SQUAD ELIMINATION", "FULL TEAM ELIMINATION"],
+        "confidenceThreshold": 85,
+        "cooldown": 5.0,
+        "window": 4.0
+      }
+    }
+  ],
+  "performance": {
+    "recommendedFPS": 5,
+    "minFPS": 3,
+    "maxFPS": 10,
+    "cpuUsage": "medium",
+    "gpuAcceleration": "recommended"
+  },
+  "calibration": {
+    "resolution": "2560x1440",
+    "aspectRatio": "16:9",
+    "uiScale": 1.0,
+    "notes": "For best results, run Delta Force at native 2560x1440 resolution with UI scale set to 100%."
+  },
+  "troubleshooting": {
+    "noEventsDetected": [
+      "Check game resolution matches calibration",
+      "Verify OCR coordinates with overlay tool",
+      "Adjust detector parameters (dilateDiameter, minimumArea)",
+      "Increase confidence thresholds gradually"
+    ],
+    "falsePositives": [
+      "Increase confidence thresholds",
+      "Add more specific match patterns",
+      "Adjust cooldown periods",
+      "Refine crop coordinates"
+    ],
+    "performanceIssues": [
+      "Reduce FPS setting",
+      "Decrease detectorDilateDiameter",
+      "Increase detectorMinimumArea",
+      "Enable GPU acceleration if available"
+    ]
+  }
+}

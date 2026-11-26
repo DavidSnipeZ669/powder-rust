@@ -1,0 +1,371 @@
+{
+ "effectBundles": [
+  {
+   "bundleName": "fastThenSlow",
+   "timeWarpingEffects": [
+    {
+     "timeFactor": 2,
+     "beginOffsetFromEvent": -0.75,
+     "endOffsetFromEvent": 0
+    },
+    {
+     "timeFactor": 0.5,
+     "beginOffsetFromEvent": 0,
+     "endOffsetFromEvent": 1
+    }
+   ],
+   "visualEffects": [
+    {
+     "effectName": "saturation",
+     "beginOffsetFromEvent": 0,
+     "durationInSec": 1
+    }
+   ]
+  },
+  {
+   "bundleName": "flashScope",
+   "timeWarpingEffects": [
+    {
+     "timeFactor": 0.5,
+     "beginOffsetFromEvent": -1.25,
+     "endOffsetFromEvent": -0.5
+    },
+    {
+     "timeFactor": 2,
+     "beginOffsetFromEvent": -0.5,
+     "endOffsetFromEvent": 0
+    }
+   ],
+   "visualEffects": [
+    {
+     "effectName": "flash",
+     "beginOffsetFromEvent": 0,
+     "durationInSec": 0.3
+    },
+    {
+     "effectName": "elastic_zoom",
+     "beginOffsetFromEvent": -0.3,
+     "durationInSec": 0.3
+    }
+   ]
+  },
+  {
+   "bundleName": "veryFastThenSlow",
+   "timeWarpingEffects": [
+    {
+     "timeFactor": 2.5,
+     "beginOffsetFromEvent": -0.5,
+     "endOffsetFromEvent": 0
+    },
+    {
+     "timeFactor": 0.5,
+     "beginOffsetFromEvent": 0,
+     "endOffsetFromEvent": 1
+    }
+   ],
+   "visualEffects": [
+    {
+     "effectName": "shake_color_distortion",
+     "beginOffsetFromEvent": 0,
+     "durationInSec": 0.5
+    }
+   ]
+  },
+  {
+   "bundleName": "slowFastSlow",
+   "timeWarpingEffects": [
+    {
+     "timeFactor": 0.5,
+     "beginOffsetFromEvent": -1.5,
+     "endOffsetFromEvent": -0.75
+    },
+    {
+     "timeFactor": 2,
+     "beginOffsetFromEvent": -0.5,
+     "endOffsetFromEvent": 0
+    },
+    {
+     "timeFactor": 0.5,
+     "beginOffsetFromEvent": 0.25,
+     "endOffsetFromEvent": 1.25
+    }
+   ],
+   "visualEffects": [
+    {
+     "effectName": "saturation",
+     "beginOffsetFromEvent": -1.5,
+     "durationInSec": 0.5
+    },
+    {
+     "effectName": "bokeh_blur",
+     "beginOffsetFromEvent": -1.5,
+     "durationInSec": 0.5
+    }
+   ]
+  },
+  {
+   "bundleName": "greyDistortionArrow",
+   "timeWarpingEffects": [
+    {
+     "timeFactor": 2,
+     "beginOffsetFromEvent": -0.5,
+     "endOffsetFromEvent": 0
+    }
+   ],
+   "visualEffects": [
+    {
+     "effectName": "hold_zoom_and_release",
+     "beginOffsetFromEvent": -1.5,
+     "durationInSec": 1.5
+    },
+    {
+     "effectName": "grayscale",
+     "beginOffsetFromEvent": -1.5,
+     "durationInSec": 1.25
+    },
+    {
+     "effectName": "shake",
+     "beginOffsetFromEvent": 0,
+     "durationInSec": 0.5
+    },
+    {
+     "effectName": "bokeh_blur",
+     "beginOffsetFromEvent": 0,
+     "durationInSec": 0.5
+    },
+    {
+     "effectName": "saturation",
+     "beginOffsetFromEvent": 0,
+     "durationInSec": 0.5
+    },
+    {
+     "effectName": "screen_distortion",
+     "beginOffsetFromEvent": -0.3,
+     "durationInSec": 0.3
+    }
+   ]
+  },
+  {
+   "bundleName": "lensShake",
+   "timeWarpingEffects": [
+    {
+     "timeFactor": 2,
+     "beginOffsetFromEvent": -0.5,
+     "endOffsetFromEvent": 0
+    }
+   ],
+   "visualEffects": [
+    {
+     "effectName": "hold_zoom_and_release",
+     "beginOffsetFromEvent": -1.5,
+     "durationInSec": 1.5
+    },
+    {
+     "effectName": "shake",
+     "beginOffsetFromEvent": 0,
+     "durationInSec": 0.5
+    },
+    {
+     "effectName": "lens_distortion",
+     "beginOffsetFromEvent": -0.5,
+     "durationInSec": 0.5
+    }
+   ]
+  },
+  {
+   "bundleName": "backToColor",
+   "timeWarpingEffects": [
+    {
+     "timeFactor": 2,
+     "beginOffsetFromEvent": -0.5,
+     "endOffsetFromEvent": 0
+    }
+   ],
+   "visualEffects": [
+    {
+     "effectName": "grayscale",
+     "beginOffsetFromEvent": -1.5,
+     "durationInSec": 1.25
+    },
+    {
+     "effectName": "screen_distortion_crop",
+     "beginOffsetFromEvent": -0.5,
+     "durationInSec": 0.5
+    },
+    {
+     "effectName": "flash",
+     "beginOffsetFromEvent": -0.3,
+     "durationInSec": 0.3
+    }
+   ]
+  },
+  {
+   "bundleName": "RLSlowBefore",
+   "timeWarpingEffects": [
+    {
+     "timeFactor": 0.5,
+     "beginOffsetFromEvent": -2,
+     "endOffsetFromEvent": -0.5
+    }
+   ],
+   "visualEffects": []
+  },
+  {
+   "bundleName": "RLSlowAfter",
+   "timeWarpingEffects": [
+    {
+     "timeFactor": 0.5,
+     "beginOffsetFromEvent": -0.5,
+     "endOffsetFromEvent": 1.5
+    }
+   ],
+   "visualEffects": []
+  },
+  {
+   "bundleName": "RLShake",
+   "timeWarpingEffects": [],
+   "visualEffects": [
+    {
+     "effectName": "shake_color_distortion",
+     "beginOffsetFromEvent": -0.5,
+     "durationInSec": 0.5
+    }
+   ]
+  },
+  {
+   "bundleName": "RLFlashScope",
+   "timeWarpingEffects": [
+    {
+     "timeFactor": 0.5,
+     "beginOffsetFromEvent": -1.15,
+     "endOffsetFromEvent": -0.3
+    }
+   ],
+   "visualEffects": [
+    {
+     "effectName": "flash",
+     "beginOffsetFromEvent": -0.45,
+     "durationInSec": 0.3
+    },
+    {
+     "effectName": "elastic_zoom",
+     "beginOffsetFromEvent": -0.45,
+     "durationInSec": 0.3
+    }
+   ]
+  },
+  {
+   "bundleName": "dejavu",
+   "timeWarpingEffects": [],
+   "visualEffects": [
+    {
+     "effectName": "speed",
+     "beginOffsetFromEvent": 0,
+     "durationInSec": 3
+    }
+   ]
+  },
+  {
+   "bundleName": "SF6greyDistortionArrow",
+   "timeWarpingEffects": [],
+   "visualEffects": [
+    {
+     "effectName": "hold_zoom_and_release",
+     "beginOffsetFromEvent": -1.5,
+     "durationInSec": 1.5
+    },
+    {
+     "effectName": "grayscale",
+     "beginOffsetFromEvent": -1.5,
+     "durationInSec": 1.25
+    },
+    {
+     "effectName": "shake",
+     "beginOffsetFromEvent": 0,
+     "durationInSec": 0.5
+    },
+    {
+     "effectName": "bokeh_blur",
+     "beginOffsetFromEvent": 0,
+     "durationInSec": 0.5
+    },
+    {
+     "effectName": "saturation",
+     "beginOffsetFromEvent": 0,
+     "durationInSec": 0.5
+    },
+    {
+     "effectName": "screen_distortion",
+     "beginOffsetFromEvent": -0.3,
+     "durationInSec": 0.3
+    }
+   ]
+  },
+  {
+   "bundleName": "SNBWorldEvent",
+   "timeWarpingEffects": [
+    {
+     "timeFactor": 1.4,
+     "beginOffsetFromEvent": -8,
+     "endOffsetFromEvent": -1.5
+    }
+   ],
+   "visualEffects": [
+    {
+     "effectName": "saturation",
+     "beginOffsetFromEvent": 0,
+     "durationInSec": 2.5
+    },
+    {
+     "effectName": "shake",
+     "beginOffsetFromEvent": 0,
+     "durationInSec": 0.75
+    }
+   ]
+  },
+  {
+   "bundleName": "SNBKillPVP",
+   "timeWarpingEffects": [
+    {
+     "timeFactor": 1.4,
+     "beginOffsetFromEvent": -8,
+     "endOffsetFromEvent": -1.5
+    },
+    {
+     "timeFactor": 0.5,
+     "beginOffsetFromEvent": -1.5,
+     "endOffsetFromEvent": 1.5
+    }
+   ],
+   "visualEffects": [
+    {
+     "effectName": "shake_color_distortion",
+     "beginOffsetFromEvent": -1,
+     "durationInSec": 2.5
+    },
+    {
+     "effectName": "shake",
+     "beginOffsetFromEvent": -1,
+     "durationInSec": 1.75
+    }
+   ]
+  },
+  {
+   "bundleName": "SNBBossKill",
+   "timeWarpingEffects": [],
+   "visualEffects": [
+    {
+     "effectName": "grayscale",
+     "beginOffsetFromEvent": -1,
+     "durationInSec": 2
+    },
+    {
+     "effectName": "bokeh_blur",
+     "beginOffsetFromEvent": -0.5,
+     "durationInSec": 1
+    }
+   ]
+  }
+ ],
+ "_note": "Effect bundles (same format as Powder ai-configs/automatic_montage/config.json). Offsets are seconds relative to the event; timeFactor >1 = faster."
+}

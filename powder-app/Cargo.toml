@@ -1,0 +1,49 @@
+[package]
+name = "powder-app"
+version = "8.0.2-rs.1"
+edition = "2021"
+description = "Rewind (Powder rebuilt in Rust), with the Electron main process rewritten in Rust (original interface, original native engine)"
+
+[[bin]]
+name = "Rewind"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+dirs = "6"
+sha2 = "0.10"
+hex = "0.4"
+mime_guess = "2"
+parking_lot = "0.12"
+base64 = "0.22"
+md-5 = "0.10"
+imagesize = "0.13"
+ureq = { version = "2", default-features = false, features = ["json"] }
+zip = { version = "2", default-features = false, features = ["deflate"] }
+
+[target.'cfg(not(windows))'.dependencies]
+ureq = { version = "2", default-features = false, features = ["json", "tls"] }
+
+[build-dependencies]
+zip = { version = "2", default-features = false, features = ["deflate"] }
+
+[target.'cfg(windows)'.build-dependencies]
+winresource = "0.1"
+
+[target.'cfg(windows)'.dependencies]
+image = { version = "0.25", default-features = false, features = ["png"] }
+ureq = { version = "2", default-features = false, features = ["json", "native-tls"] }
+native-tls = "0.2"
+tao = "0.38"
+wry = "0.58"
+tray-icon = "0.27"
+rfd = "0.15"
+arboard = "3"
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_System_Pipes", "Win32_System_IO", "Win32_System_Threading", "Win32_Security", "Win32_System_Diagnostics_Debug", "Win32_System_Diagnostics_ToolHelp", "Win32_System_Power", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging"] }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+strip = true

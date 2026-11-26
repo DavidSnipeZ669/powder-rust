@@ -1,0 +1,46 @@
+[package]
+name = "powder-rs"
+version = "0.1.0"
+edition = "2021"
+description = "Open, customisable game-highlight detection engine compatible with Powder game configs"
+license = "MIT"
+
+[[bin]]
+name = "powder-rs"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+mlua = { version = "0.12", features = ["luajit", "vendored", "serialize", "anyhow"] }
+ort = { version = "=2.0.0-rc.15", default-features = false, features = ["std", "ndarray", "load-dynamic"] }
+ndarray = "0.17"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
+regex = "1"
+tiny_http = "0.12"
+base64 = "0.22"
+sha2 = "0.10"
+hex = "0.4"
+ureq = { version = "2", default-features = false, features = ["tls", "json"] }
+walkdir = "2"
+dirs = "6"
+rand = "0.9"
+sysinfo = "0.37"
+hound = "3"
+whisper-rs = { version = "0.16", optional = true }
+
+[features]
+default = []
+# speech-to-text (transcripts + keyword events) via whisper.cpp; needs CMake + a C++ compiler to build
+transcribe = ["dep:whisper-rs"]
+
+[target.'cfg(windows)'.dependencies]
+ort = { version = "=2.0.0-rc.15", default-features = false, features = ["std", "ndarray", "load-dynamic", "directml"] }
+cpal = "0.15"
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging", "Win32_System_Threading"] }
+
+[profile.release]
+opt-level = 3
+lto = "thin"

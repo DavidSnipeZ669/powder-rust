@@ -1,0 +1,1314 @@
+{
+ "bridgeKeysKey": "powder.BridgeKeys--099f55f2-5e38-4e37-8f99-a743103277c7",
+ "bridgesVariableKey": "powder.BridgesVariable--099f55f2-5e38-4e37-8f99-a743103277c7",
+ "bridges": [
+  {
+   "key": "ai-events--000ba107-5e70-4ab7-9dd3-c4546a374dbe",
+   "name": "ai-events",
+   "id": "000ba107-5e70-4ab7-9dd3-c4546a374dbe",
+   "functions": [
+    {
+     "name": "getAIEventsByCategoriesFromPowderGameId",
+     "channel": "ai-events.getAIEventsByCategoriesFromPowderGameId--000ba107-5e70-4ab7-9dd3-c4546a374dbe"
+    }
+   ],
+   "variables": [],
+   "streams": []
+  },
+  {
+   "key": "analytics--d64bcfe1-56b1-4702-b482-6de5a93e1abe",
+   "name": "analytics",
+   "id": "d64bcfe1-56b1-4702-b482-6de5a93e1abe",
+   "functions": [
+    {
+     "name": "track",
+     "channel": "analytics.track--d64bcfe1-56b1-4702-b482-6de5a93e1abe"
+    }
+   ],
+   "variables": [],
+   "streams": []
+  },
+  {
+   "key": "announcements--a258e6c7-7889-4206-80d8-a39c7c19ec3d",
+   "name": "announcements",
+   "id": "a258e6c7-7889-4206-80d8-a39c7c19ec3d",
+   "functions": [
+    {
+     "name": "readStats",
+     "channel": "announcements.readStats--a258e6c7-7889-4206-80d8-a39c7c19ec3d"
+    },
+    {
+     "name": "writeAsShown",
+     "channel": "announcements.writeAsShown--a258e6c7-7889-4206-80d8-a39c7c19ec3d"
+    },
+    {
+     "name": "shouldShowOnce",
+     "channel": "announcements.shouldShowOnce--a258e6c7-7889-4206-80d8-a39c7c19ec3d"
+    },
+    {
+     "name": "shouldShowOncePerDay",
+     "channel": "announcements.shouldShowOncePerDay--a258e6c7-7889-4206-80d8-a39c7c19ec3d"
+    },
+    {
+     "name": "shouldShowOncePerDayNTimes",
+     "channel": "announcements.shouldShowOncePerDayNTimes--a258e6c7-7889-4206-80d8-a39c7c19ec3d"
+    },
+    {
+     "name": "validateAnnouncement",
+     "channel": "announcements.validateAnnouncement--a258e6c7-7889-4206-80d8-a39c7c19ec3d"
+    },
+    {
+     "name": "getIfAnnouncementIsValidated",
+     "channel": "announcements.getIfAnnouncementIsValidated--a258e6c7-7889-4206-80d8-a39c7c19ec3d"
+    }
+   ],
+   "variables": [
+    {
+     "name": "remoteMessage",
+     "channel": "announcements.remoteMessage--variable--a258e6c7-7889-4206-80d8-a39c7c19ec3d",
+     "fetch": "announcements.remoteMessage--fetch-variable--a258e6c7-7889-4206-80d8-a39c7c19ec3d"
+    }
+   ],
+   "streams": []
+  },
+  {
+   "key": "application--48a3b76b-32cf-458d-bdb0-1363900dc24a",
+   "name": "application",
+   "id": "48a3b76b-32cf-458d-bdb0-1363900dc24a",
+   "functions": [
+    {
+     "name": "openExternal",
+     "channel": "application.openExternal--48a3b76b-32cf-458d-bdb0-1363900dc24a"
+    },
+    {
+     "name": "revealUserDataFolder",
+     "channel": "application.revealUserDataFolder--48a3b76b-32cf-458d-bdb0-1363900dc24a"
+    }
+   ],
+   "variables": [
+    {
+     "name": "isOnline",
+     "channel": "application.isOnline--variable--48a3b76b-32cf-458d-bdb0-1363900dc24a",
+     "fetch": "application.isOnline--fetch-variable--48a3b76b-32cf-458d-bdb0-1363900dc24a"
+    }
+   ],
+   "streams": []
+  },
+  {
+   "key": "auto-edits--e528982a-9f44-4c2d-863d-b9c06694700b",
+   "name": "auto-edits",
+   "id": "e528982a-9f44-4c2d-863d-b9c06694700b",
+   "functions": [
+    {
+     "name": "createGenerateAutoEditsTaskByExtractionProjectId",
+     "channel": "auto-edits.createGenerateAutoEditsTaskByExtractionProjectId--e528982a-9f44-4c2d-863d-b9c06694700b"
+    },
+    {
+     "name": "cancelGenerateAutoEditsTaskByExtractionProjectId",
+     "channel": "auto-edits.cancelGenerateAutoEditsTaskByExtractionProjectId--e528982a-9f44-4c2d-863d-b9c06694700b"
+    },
+    {
+     "name": "tryTogglePauseResumeAutoEditsByExtractionProjectId",
+     "channel": "auto-edits.tryTogglePauseResumeAutoEditsByExtractionProjectId--e528982a-9f44-4c2d-863d-b9c06694700b"
+    },
+    {
+     "name": "exportAutoEdit",
+     "channel": "auto-edits.exportAutoEdit--e528982a-9f44-4c2d-863d-b9c06694700b"
+    },
+    {
+     "name": "cancelExportAutoEdit",
+     "channel": "auto-edits.cancelExportAutoEdit--e528982a-9f44-4c2d-863d-b9c06694700b"
+    }
+   ],
+   "variables": [
+    {
+     "name": "autoEditsTasksByExtractionProjectId",
+     "channel": "auto-edits.autoEditsTasksByExtractionProjectId--variable--e528982a-9f44-4c2d-863d-b9c06694700b",
+     "fetch": "auto-edits.autoEditsTasksByExtractionProjectId--fetch-variable--e528982a-9f44-4c2d-863d-b9c06694700b"
+    },
+    {
+     "name": "exportAutoEditProcess",
+     "channel": "auto-edits.exportAutoEditProcess--variable--e528982a-9f44-4c2d-863d-b9c06694700b",
+     "fetch": "auto-edits.exportAutoEditProcess--fetch-variable--e528982a-9f44-4c2d-863d-b9c06694700b"
+    }
+   ],
+   "streams": []
+  },
+  {
+   "key": "automontage--52518e2d-cf3f-4f1e-a3f7-cc4f3a2c2c63",
+   "name": "automontage",
+   "id": "52518e2d-cf3f-4f1e-a3f7-cc4f3a2c2c63",
+   "functions": [
+    {
+     "name": "markAutoMontageAsWatched",
+     "channel": "automontage.markAutoMontageAsWatched--52518e2d-cf3f-4f1e-a3f7-cc4f3a2c2c63"
+    },
+    {
+     "name": "renameAutoMontage",
+     "channel": "automontage.renameAutoMontage--52518e2d-cf3f-4f1e-a3f7-cc4f3a2c2c63"
+    },
+    {
+     "name": "deleteAutoMontageById",
+     "channel": "automontage.deleteAutoMontageById--52518e2d-cf3f-4f1e-a3f7-cc4f3a2c2c63"
+    },
+    {
+     "name": "revealInFolderById",
+     "channel": "automontage.revealInFolderById--52518e2d-cf3f-4f1e-a3f7-cc4f3a2c2c63"
+    },
+    {
+     "name": "getAutomontageCandidates",
+     "channel": "automontage.getAutomontageCandidates--52518e2d-cf3f-4f1e-a3f7-cc4f3a2c2c63"
+    },
+    {
+     "name": "estimateAutoMontageLength",
+     "channel": "automontage.estimateAutoMontageLength--52518e2d-cf3f-4f1e-a3f7-cc4f3a2c2c63"
+    },
+    {
+     "name": "generateAutoMontage",
+     "channel": "automontage.generateAutoMontage--52518e2d-cf3f-4f1e-a3f7-cc4f3a2c2c63"
+    },
+    {
+     "name": "stopAutomontageCreation",
+     "channel": "automontage.stopAutomontageCreation--52518e2d-cf3f-4f1e-a3f7-cc4f3a2c2c63"
+    },
+    {
+     "name": "loadAutoMontageConfig",
+     "channel": "automontage.loadAutoMontageConfig--52518e2d-cf3f-4f1e-a3f7-cc4f3a2c2c63"
+    }
+   ],
+   "variables": [
+    {
+     "name": "autoMontagesByIds",
+     "channel": "automontage.autoMontagesByIds--variable--52518e2d-cf3f-4f1e-a3f7-cc4f3a2c2c63",
+     "fetch": "automontage.autoMontagesByIds--fetch-variable--52518e2d-cf3f-4f1e-a3f7-cc4f3a2c2c63"
+    },
+    {
+     "name": "normalizedAutoMontage",
+     "channel": "automontage.normalizedAutoMontage--variable--52518e2d-cf3f-4f1e-a3f7-cc4f3a2c2c63",
+     "fetch": "automontage.normalizedAutoMontage--fetch-variable--52518e2d-cf3f-4f1e-a3f7-cc4f3a2c2c63"
+    },
+    {
+     "name": "automontageProcessState",
+     "channel": "automontage.automontageProcessState--variable--52518e2d-cf3f-4f1e-a3f7-cc4f3a2c2c63",
+     "fetch": "automontage.automontageProcessState--fetch-variable--52518e2d-cf3f-4f1e-a3f7-cc4f3a2c2c63"
+    }
+   ],
+   "streams": []
+  },
+  {
+   "key": "block-sleep-mode--16df94f9-1ea4-4e77-bad0-51b1a427d1e43",
+   "name": "block-sleep-mode",
+   "id": "16df94f9-1ea4-4e77-bad0-51b1a427d1e43",
+   "functions": [
+    {
+     "name": "preventSleepMode",
+     "channel": "block-sleep-mode.preventSleepMode--16df94f9-1ea4-4e77-bad0-51b1a427d1e43"
+    },
+    {
+     "name": "stopPreventSleepMode",
+     "channel": "block-sleep-mode.stopPreventSleepMode--16df94f9-1ea4-4e77-bad0-51b1a427d1e43"
+    }
+   ],
+   "variables": [],
+   "streams": []
+  },
+  {
+   "key": "bookmark--092c81d7-61bf-4fa6-bb7d-18b53efc9bbe",
+   "name": "bookmark",
+   "id": "092c81d7-61bf-4fa6-bb7d-18b53efc9bbe",
+   "functions": [
+    {
+     "name": "getBookmarksSectionGroupedByProjectId",
+     "channel": "bookmark.getBookmarksSectionGroupedByProjectId--092c81d7-61bf-4fa6-bb7d-18b53efc9bbe"
+    },
+    {
+     "name": "getBookmark",
+     "channel": "bookmark.getBookmark--092c81d7-61bf-4fa6-bb7d-18b53efc9bbe"
+    },
+    {
+     "name": "getBookmarks",
+     "channel": "bookmark.getBookmarks--092c81d7-61bf-4fa6-bb7d-18b53efc9bbe"
+    },
+    {
+     "name": "setVerticalTemplateToBookmark",
+     "channel": "bookmark.setVerticalTemplateToBookmark--092c81d7-61bf-4fa6-bb7d-18b53efc9bbe"
+    },
+    {
+     "name": "setVerticalTemplateToAllBookmarksOfAExtractionProject",
+     "channel": "bookmark.setVerticalTemplateToAllBookmarksOfAExtractionProject--092c81d7-61bf-4fa6-bb7d-18b53efc9bbe"
+    },
+    {
+     "name": "setBookmarkTranscript",
+     "channel": "bookmark.setBookmarkTranscript--092c81d7-61bf-4fa6-bb7d-18b53efc9bbe"
+    },
+    {
+     "name": "exportBookmark",
+     "channel": "bookmark.exportBookmark--092c81d7-61bf-4fa6-bb7d-18b53efc9bbe"
+    },
+    {
+     "name": "exportBookmarks",
+     "channel": "bookmark.exportBookmarks--092c81d7-61bf-4fa6-bb7d-18b53efc9bbe"
+    },
+    {
+     "name": "removeBookmark",
+     "channel": "bookmark.removeBookmark--092c81d7-61bf-4fa6-bb7d-18b53efc9bbe"
+    },
+    {
+     "name": "removeBookmarks",
+     "channel": "bookmark.removeBookmarks--092c81d7-61bf-4fa6-bb7d-18b53efc9bbe"
+    },
+    {
+     "name": "getGameListOfBookmarksSections",
+     "channel": "bookmark.getGameListOfBookmarksSections--092c81d7-61bf-4fa6-bb7d-18b53efc9bbe"
+    },
+    {
+     "name": "cancelExportBookmark",
+     "channel": "bookmark.cancelExportBookmark--092c81d7-61bf-4fa6-bb7d-18b53efc9bbe"
+    }
+   ],
+   "variables": [
+    {
+     "name": "exportProcess",
+     "channel": "bookmark.exportProcess--variable--092c81d7-61bf-4fa6-bb7d-18b53efc9bbe",
+     "fetch": "bookmark.exportProcess--fetch-variable--092c81d7-61bf-4fa6-bb7d-18b53efc9bbe"
+    }
+   ],
+   "streams": []
+  },
+  {
+   "key": "clipboard--4df0d6e6-900d-11ec-b909-0242ac120002",
+   "name": "clipboard",
+   "id": "4df0d6e6-900d-11ec-b909-0242ac120002",
+   "functions": [
+    {
+     "name": "copy",
+     "channel": "clipboard.copy--4df0d6e6-900d-11ec-b909-0242ac120002"
+    },
+    {
+     "name": "read",
+     "channel": "clipboard.read--4df0d6e6-900d-11ec-b909-0242ac120002"
+    }
+   ],
+   "variables": [],
+   "streams": []
+  },
+  {
+   "key": "error--33d518e6-2661-4599-a601-739ef512cdd8",
+   "name": "error",
+   "id": "33d518e6-2661-4599-a601-739ef512cdd8",
+   "functions": [
+    {
+     "name": "forwardError",
+     "channel": "error.forwardError--33d518e6-2661-4599-a601-739ef512cdd8"
+    }
+   ],
+   "variables": [],
+   "streams": []
+  },
+  {
+   "key": "extraction-projects--0da00f51-21eb-4b1a-9d86-5e5f4ace10d8",
+   "name": "extraction-projects",
+   "id": "0da00f51-21eb-4b1a-9d86-5e5f4ace10d8",
+   "functions": [
+    {
+     "name": "create",
+     "channel": "extraction-projects.create--0da00f51-21eb-4b1a-9d86-5e5f4ace10d8"
+    },
+    {
+     "name": "read",
+     "channel": "extraction-projects.read--0da00f51-21eb-4b1a-9d86-5e5f4ace10d8"
+    },
+    {
+     "name": "update",
+     "channel": "extraction-projects.update--0da00f51-21eb-4b1a-9d86-5e5f4ace10d8"
+    },
+    {
+     "name": "delete",
+     "channel": "extraction-projects.delete--0da00f51-21eb-4b1a-9d86-5e5f4ace10d8"
+    }
+   ],
+   "variables": [
+    {
+     "name": "extractionProjectsCount",
+     "channel": "extraction-projects.extractionProjectsCount--variable--0da00f51-21eb-4b1a-9d86-5e5f4ace10d8",
+     "fetch": "extraction-projects.extractionProjectsCount--fetch-variable--0da00f51-21eb-4b1a-9d86-5e5f4ace10d8"
+    }
+   ],
+   "streams": []
+  },
+  {
+   "key": "flags--7b1ce7d5-279f-4f76-861e-69bb987022f6",
+   "name": "flags",
+   "id": "7b1ce7d5-279f-4f76-861e-69bb987022f6",
+   "functions": [],
+   "variables": [
+    {
+     "name": "flags",
+     "channel": "flags.flags--variable--7b1ce7d5-279f-4f76-861e-69bb987022f6",
+     "fetch": "flags.flags--fetch-variable--7b1ce7d5-279f-4f76-861e-69bb987022f6"
+    }
+   ],
+   "streams": []
+  },
+  {
+   "key": "games--97cd1ed6-858b-46fe-9bb8-2e7a2b49bda2",
+   "name": "games",
+   "id": "97cd1ed6-858b-46fe-9bb8-2e7a2b49bda2",
+   "functions": [
+    {
+     "name": "getGameByPowderGameId",
+     "channel": "games.getGameByPowderGameId--97cd1ed6-858b-46fe-9bb8-2e7a2b49bda2"
+    },
+    {
+     "name": "getNpuGames",
+     "channel": "games.getNpuGames--97cd1ed6-858b-46fe-9bb8-2e7a2b49bda2"
+    }
+   ],
+   "variables": [
+    {
+     "name": "supportedGames",
+     "channel": "games.supportedGames--variable--97cd1ed6-858b-46fe-9bb8-2e7a2b49bda2",
+     "fetch": "games.supportedGames--fetch-variable--97cd1ed6-858b-46fe-9bb8-2e7a2b49bda2"
+    }
+   ],
+   "streams": []
+  },
+  {
+   "key": "local-video--7acd32c0-6c78-4a82-998f-0c9ce5c7585d",
+   "name": "local-video",
+   "id": "7acd32c0-6c78-4a82-998f-0c9ce5c7585d",
+   "functions": [
+    {
+     "name": "revealInFolder",
+     "channel": "local-video.revealInFolder--7acd32c0-6c78-4a82-998f-0c9ce5c7585d"
+    },
+    {
+     "name": "deleteLocalFile",
+     "channel": "local-video.deleteLocalFile--7acd32c0-6c78-4a82-998f-0c9ce5c7585d"
+    },
+    {
+     "name": "readVideoMetadata",
+     "channel": "local-video.readVideoMetadata--7acd32c0-6c78-4a82-998f-0c9ce5c7585d"
+    }
+   ],
+   "variables": [],
+   "streams": []
+  },
+  {
+   "key": "logger--1b78c6ec-7b5c-444c-9b82-34ba0ca72ce5",
+   "name": "logger",
+   "id": "1b78c6ec-7b5c-444c-9b82-34ba0ca72ce5",
+   "functions": [
+    {
+     "name": "log",
+     "channel": "logger.log--1b78c6ec-7b5c-444c-9b82-34ba0ca72ce5"
+    },
+    {
+     "name": "revealLogs",
+     "channel": "logger.revealLogs--1b78c6ec-7b5c-444c-9b82-34ba0ca72ce5"
+    }
+   ],
+   "variables": [],
+   "streams": []
+  },
+  {
+   "key": "login--1685ed40-84e7-4da3-af86-cf690e01e5dd",
+   "name": "login",
+   "id": "1685ed40-84e7-4da3-af86-cf690e01e5dd",
+   "functions": [
+    {
+     "name": "refreshToken",
+     "channel": "login.refreshToken--1685ed40-84e7-4da3-af86-cf690e01e5dd"
+    }
+   ],
+   "variables": [
+    {
+     "name": "user",
+     "channel": "login.user--variable--1685ed40-84e7-4da3-af86-cf690e01e5dd",
+     "fetch": "login.user--fetch-variable--1685ed40-84e7-4da3-af86-cf690e01e5dd"
+    },
+    {
+     "name": "authorization",
+     "channel": "login.authorization--variable--1685ed40-84e7-4da3-af86-cf690e01e5dd",
+     "fetch": "login.authorization--fetch-variable--1685ed40-84e7-4da3-af86-cf690e01e5dd"
+    }
+   ],
+   "streams": []
+  },
+  {
+   "key": "window--c919a074-e305-11eb-ba80-0242ac130004",
+   "name": "window",
+   "id": "c919a074-e305-11eb-ba80-0242ac130004",
+   "functions": [
+    {
+     "name": "minimize",
+     "channel": "window.minimize--c919a074-e305-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "maximize",
+     "channel": "window.maximize--c919a074-e305-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "show",
+     "channel": "window.show--c919a074-e305-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "hide",
+     "channel": "window.hide--c919a074-e305-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "openFolderPicker",
+     "channel": "window.openFolderPicker--c919a074-e305-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "openVideoPicker",
+     "channel": "window.openVideoPicker--c919a074-e305-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "openVideosPicker",
+     "channel": "window.openVideosPicker--c919a074-e305-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "openMusicPicker",
+     "channel": "window.openMusicPicker--c919a074-e305-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "openImagesPicker",
+     "channel": "window.openImagesPicker--c919a074-e305-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "showSaveDialog",
+     "channel": "window.showSaveDialog--c919a074-e305-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "showOpenDialog",
+     "channel": "window.showOpenDialog--c919a074-e305-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "showItemInFolder",
+     "channel": "window.showItemInFolder--c919a074-e305-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "openPath",
+     "channel": "window.openPath--c919a074-e305-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "destroy",
+     "channel": "window.destroy--c919a074-e305-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "stopRecordingAndCloseApp",
+     "channel": "window.stopRecordingAndCloseApp--c919a074-e305-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "closeAfterRecordingSave",
+     "channel": "window.closeAfterRecordingSave--c919a074-e305-11eb-ba80-0242ac130004"
+    }
+   ],
+   "variables": [],
+   "streams": [
+    {
+     "name": "navigateTo",
+     "channel": "window.navigateTo--stream--c919a074-e305-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "setModal",
+     "channel": "window.setModal--stream--c919a074-e305-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "closeModal",
+     "channel": "window.closeModal--stream--c919a074-e305-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "resize",
+     "channel": "window.resize--stream--c919a074-e305-11eb-ba80-0242ac130004"
+    }
+   ]
+  },
+  {
+   "key": "montage-maker--c77d0c71-e80b-4c1d-88a8-dd0fbf95f796",
+   "name": "montage-maker",
+   "id": "c77d0c71-e80b-4c1d-88a8-dd0fbf95f796",
+   "functions": [
+    {
+     "name": "stopMontageCreation",
+     "channel": "montage-maker.stopMontageCreation--c77d0c71-e80b-4c1d-88a8-dd0fbf95f796"
+    }
+   ],
+   "variables": [
+    {
+     "name": "montageMakerState",
+     "channel": "montage-maker.montageMakerState--variable--c77d0c71-e80b-4c1d-88a8-dd0fbf95f796",
+     "fetch": "montage-maker.montageMakerState--fetch-variable--c77d0c71-e80b-4c1d-88a8-dd0fbf95f796"
+    }
+   ],
+   "streams": []
+  },
+  {
+   "key": "music--7392cb91-0350-45b6-9e65-3a5c3baaa0e7",
+   "name": "music",
+   "id": "7392cb91-0350-45b6-9e65-3a5c3baaa0e7",
+   "functions": [
+    {
+     "name": "getMusicList",
+     "channel": "music.getMusicList--7392cb91-0350-45b6-9e65-3a5c3baaa0e7"
+    },
+    {
+     "name": "protocolizeImportedMusicPath",
+     "channel": "music.protocolizeImportedMusicPath--7392cb91-0350-45b6-9e65-3a5c3baaa0e7"
+    },
+    {
+     "name": "exportMusicCertificate",
+     "channel": "music.exportMusicCertificate--7392cb91-0350-45b6-9e65-3a5c3baaa0e7"
+    }
+   ],
+   "variables": [],
+   "streams": []
+  },
+  {
+   "key": "nativeVideoStream--b3404154-89b3-4139-9992-713567fc8868",
+   "name": "nativeVideoStream",
+   "id": "b3404154-89b3-4139-9992-713567fc8868",
+   "functions": [
+    {
+     "name": "newStream",
+     "channel": "nativeVideoStream.newStream--b3404154-89b3-4139-9992-713567fc8868"
+    },
+    {
+     "name": "stopStream",
+     "channel": "nativeVideoStream.stopStream--b3404154-89b3-4139-9992-713567fc8868"
+    },
+    {
+     "name": "getChunk",
+     "channel": "nativeVideoStream.getChunk--b3404154-89b3-4139-9992-713567fc8868"
+    },
+    {
+     "name": "cancelAllChunks",
+     "channel": "nativeVideoStream.cancelAllChunks--b3404154-89b3-4139-9992-713567fc8868"
+    },
+    {
+     "name": "generateThumbnail",
+     "channel": "nativeVideoStream.generateThumbnail--b3404154-89b3-4139-9992-713567fc8868"
+    },
+    {
+     "name": "updateStream",
+     "channel": "nativeVideoStream.updateStream--b3404154-89b3-4139-9992-713567fc8868"
+    },
+    {
+     "name": "getStreamIllustration",
+     "channel": "nativeVideoStream.getStreamIllustration--b3404154-89b3-4139-9992-713567fc8868"
+    },
+    {
+     "name": "stopStreamIllustration",
+     "channel": "nativeVideoStream.stopStreamIllustration--b3404154-89b3-4139-9992-713567fc8868"
+    }
+   ],
+   "variables": [],
+   "streams": []
+  },
+  {
+   "key": "npu--588ac6e8-9cc9-462a-9d18-adb135fc8c4b",
+   "name": "npu",
+   "id": "588ac6e8-9cc9-462a-9d18-adb135fc8c4b",
+   "functions": [],
+   "variables": [
+    {
+     "name": "npuStatus",
+     "channel": "npu.npuStatus--variable--588ac6e8-9cc9-462a-9d18-adb135fc8c4b",
+     "fetch": "npu.npuStatus--fetch-variable--588ac6e8-9cc9-462a-9d18-adb135fc8c4b"
+    }
+   ],
+   "streams": []
+  },
+  {
+   "key": "onboarding--47eb27a6-a754-4201-9042-c23df0463d51",
+   "name": "onboarding",
+   "id": "47eb27a6-a754-4201-9042-c23df0463d51",
+   "functions": [
+    {
+     "name": "setOnboardingSteps",
+     "channel": "onboarding.setOnboardingSteps--47eb27a6-a754-4201-9042-c23df0463d51"
+    }
+   ],
+   "variables": [
+    {
+     "name": "steps",
+     "channel": "onboarding.steps--variable--47eb27a6-a754-4201-9042-c23df0463d51",
+     "fetch": "onboarding.steps--fetch-variable--47eb27a6-a754-4201-9042-c23df0463d51"
+    }
+   ],
+   "streams": []
+  },
+  {
+   "key": "recorder--697df756-0f2b-4b79-b46e-7b9feab2c2ed",
+   "name": "recorder",
+   "id": "697df756-0f2b-4b79-b46e-7b9feab2c2ed",
+   "functions": [
+    {
+     "name": "startRecording",
+     "channel": "recorder.startRecording--697df756-0f2b-4b79-b46e-7b9feab2c2ed"
+    },
+    {
+     "name": "stopRecording",
+     "channel": "recorder.stopRecording--697df756-0f2b-4b79-b46e-7b9feab2c2ed"
+    },
+    {
+     "name": "setLiveAnalysisGameCode",
+     "channel": "recorder.setLiveAnalysisGameCode--697df756-0f2b-4b79-b46e-7b9feab2c2ed"
+    }
+   ],
+   "variables": [
+    {
+     "name": "liveAnalysisGameCode",
+     "channel": "recorder.liveAnalysisGameCode--variable--697df756-0f2b-4b79-b46e-7b9feab2c2ed",
+     "fetch": "recorder.liveAnalysisGameCode--fetch-variable--697df756-0f2b-4b79-b46e-7b9feab2c2ed"
+    },
+    {
+     "name": "startDate",
+     "channel": "recorder.startDate--variable--697df756-0f2b-4b79-b46e-7b9feab2c2ed",
+     "fetch": "recorder.startDate--fetch-variable--697df756-0f2b-4b79-b46e-7b9feab2c2ed"
+    },
+    {
+     "name": "status",
+     "channel": "recorder.status--variable--697df756-0f2b-4b79-b46e-7b9feab2c2ed",
+     "fetch": "recorder.status--fetch-variable--697df756-0f2b-4b79-b46e-7b9feab2c2ed"
+    }
+   ],
+   "streams": []
+  },
+  {
+   "key": "recordings--036a9a48-ddbb-4396-92f3-22496facf610",
+   "name": "recordings",
+   "id": "036a9a48-ddbb-4396-92f3-22496facf610",
+   "functions": [
+    {
+     "name": "toggleCollapseSectionByType",
+     "channel": "recordings.toggleCollapseSectionByType--036a9a48-ddbb-4396-92f3-22496facf610"
+    }
+   ],
+   "variables": [
+    {
+     "name": "powderRecordings",
+     "channel": "recordings.powderRecordings--variable--036a9a48-ddbb-4396-92f3-22496facf610",
+     "fetch": "recordings.powderRecordings--fetch-variable--036a9a48-ddbb-4396-92f3-22496facf610"
+    },
+    {
+     "name": "importedRecordings",
+     "channel": "recordings.importedRecordings--variable--036a9a48-ddbb-4396-92f3-22496facf610",
+     "fetch": "recordings.importedRecordings--fetch-variable--036a9a48-ddbb-4396-92f3-22496facf610"
+    },
+    {
+     "name": "collapsedSections",
+     "channel": "recordings.collapsedSections--variable--036a9a48-ddbb-4396-92f3-22496facf610",
+     "fetch": "recordings.collapsedSections--fetch-variable--036a9a48-ddbb-4396-92f3-22496facf610"
+    }
+   ],
+   "streams": []
+  },
+  {
+   "key": "settings--89620c98-e30f-11eb-ba80-0242ac130004",
+   "name": "settings",
+   "id": "89620c98-e30f-11eb-ba80-0242ac130004",
+   "functions": [
+    {
+     "name": "setRunOnStartup",
+     "channel": "settings.setRunOnStartup--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "setAllowNvidiaAcceleration",
+     "channel": "settings.setAllowNvidiaAcceleration--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "setAllowIntelAcceleration",
+     "channel": "settings.setAllowIntelAcceleration--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "setAllowAmdAcceleration",
+     "channel": "settings.setAllowAmdAcceleration--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "setDownloadFolder",
+     "channel": "settings.setDownloadFolder--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "setAutoMontagesFolder",
+     "channel": "settings.setAutoMontagesFolder--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "setDumpInstructions",
+     "channel": "settings.setDumpInstructions--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "setAllowLiveOnCpu",
+     "channel": "settings.setAllowLiveOnCpu--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "setDumpMinipowData",
+     "channel": "settings.setDumpMinipowData--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "setRecorderFolder",
+     "channel": "settings.setRecorderFolder--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "setRecorderScreenDevice",
+     "channel": "settings.setRecorderScreenDevice--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "setRecorderAudioInputEnabled",
+     "channel": "settings.setRecorderAudioInputEnabled--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "setRecorderAudioInputDevice",
+     "channel": "settings.setRecorderAudioInputDevice--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "setRecorderAudioDiscordEnabled",
+     "channel": "settings.setRecorderAudioDiscordEnabled--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "setRecorderAudioForegroundEnabled",
+     "channel": "settings.setRecorderAudioForegroundEnabled--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "setRecorderSizeHeight",
+     "channel": "settings.setRecorderSizeHeight--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "setRecorderFramerate",
+     "channel": "settings.setRecorderFramerate--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "setRecorderQuality",
+     "channel": "settings.setRecorderQuality--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "setShortcutByType",
+     "channel": "settings.setShortcutByType--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "setAllowRecorder",
+     "channel": "settings.setAllowRecorder--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "setTheme",
+     "channel": "settings.setTheme--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "getRecorderScreenDeviceList",
+     "channel": "settings.getRecorderScreenDeviceList--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "getRecorderAudioInputDeviceList",
+     "channel": "settings.getRecorderAudioInputDeviceList--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "getRecorderSizeHeightList",
+     "channel": "settings.getRecorderSizeHeightList--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "getRecorderFramerateList",
+     "channel": "settings.getRecorderFramerateList--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "getRecorderQualityList",
+     "channel": "settings.getRecorderQualityList--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "launchAdrenalin",
+     "channel": "settings.launchAdrenalin--89620c98-e30f-11eb-ba80-0242ac130004"
+    }
+   ],
+   "variables": [
+    {
+     "name": "runOnStartup",
+     "channel": "settings.runOnStartup--variable--89620c98-e30f-11eb-ba80-0242ac130004",
+     "fetch": "settings.runOnStartup--fetch-variable--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "allowNvidiaAcceleration",
+     "channel": "settings.allowNvidiaAcceleration--variable--89620c98-e30f-11eb-ba80-0242ac130004",
+     "fetch": "settings.allowNvidiaAcceleration--fetch-variable--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "allowIntelAcceleration",
+     "channel": "settings.allowIntelAcceleration--variable--89620c98-e30f-11eb-ba80-0242ac130004",
+     "fetch": "settings.allowIntelAcceleration--fetch-variable--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "allowAmdAcceleration",
+     "channel": "settings.allowAmdAcceleration--variable--89620c98-e30f-11eb-ba80-0242ac130004",
+     "fetch": "settings.allowAmdAcceleration--fetch-variable--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "autoMontagesFolder",
+     "channel": "settings.autoMontagesFolder--variable--89620c98-e30f-11eb-ba80-0242ac130004",
+     "fetch": "settings.autoMontagesFolder--fetch-variable--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "downloadFolder",
+     "channel": "settings.downloadFolder--variable--89620c98-e30f-11eb-ba80-0242ac130004",
+     "fetch": "settings.downloadFolder--fetch-variable--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "dumpInstructions",
+     "channel": "settings.dumpInstructions--variable--89620c98-e30f-11eb-ba80-0242ac130004",
+     "fetch": "settings.dumpInstructions--fetch-variable--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "allowLiveOnCpu",
+     "channel": "settings.allowLiveOnCpu--variable--89620c98-e30f-11eb-ba80-0242ac130004",
+     "fetch": "settings.allowLiveOnCpu--fetch-variable--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "dumpMinipowData",
+     "channel": "settings.dumpMinipowData--variable--89620c98-e30f-11eb-ba80-0242ac130004",
+     "fetch": "settings.dumpMinipowData--fetch-variable--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "recorderFolder",
+     "channel": "settings.recorderFolder--variable--89620c98-e30f-11eb-ba80-0242ac130004",
+     "fetch": "settings.recorderFolder--fetch-variable--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "recorderScreenDevice",
+     "channel": "settings.recorderScreenDevice--variable--89620c98-e30f-11eb-ba80-0242ac130004",
+     "fetch": "settings.recorderScreenDevice--fetch-variable--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "recorderAudioInputEnabled",
+     "channel": "settings.recorderAudioInputEnabled--variable--89620c98-e30f-11eb-ba80-0242ac130004",
+     "fetch": "settings.recorderAudioInputEnabled--fetch-variable--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "recorderAudioInputDevice",
+     "channel": "settings.recorderAudioInputDevice--variable--89620c98-e30f-11eb-ba80-0242ac130004",
+     "fetch": "settings.recorderAudioInputDevice--fetch-variable--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "recorderAudioDiscordEnabled",
+     "channel": "settings.recorderAudioDiscordEnabled--variable--89620c98-e30f-11eb-ba80-0242ac130004",
+     "fetch": "settings.recorderAudioDiscordEnabled--fetch-variable--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "recorderAudioForegroundEnabled",
+     "channel": "settings.recorderAudioForegroundEnabled--variable--89620c98-e30f-11eb-ba80-0242ac130004",
+     "fetch": "settings.recorderAudioForegroundEnabled--fetch-variable--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "recorderSizeHeight",
+     "channel": "settings.recorderSizeHeight--variable--89620c98-e30f-11eb-ba80-0242ac130004",
+     "fetch": "settings.recorderSizeHeight--fetch-variable--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "recorderFramerate",
+     "channel": "settings.recorderFramerate--variable--89620c98-e30f-11eb-ba80-0242ac130004",
+     "fetch": "settings.recorderFramerate--fetch-variable--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "recorderQuality",
+     "channel": "settings.recorderQuality--variable--89620c98-e30f-11eb-ba80-0242ac130004",
+     "fetch": "settings.recorderQuality--fetch-variable--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "shortcuts",
+     "channel": "settings.shortcuts--variable--89620c98-e30f-11eb-ba80-0242ac130004",
+     "fetch": "settings.shortcuts--fetch-variable--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "installedAt",
+     "channel": "settings.installedAt--variable--89620c98-e30f-11eb-ba80-0242ac130004",
+     "fetch": "settings.installedAt--fetch-variable--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "allowRecorder",
+     "channel": "settings.allowRecorder--variable--89620c98-e30f-11eb-ba80-0242ac130004",
+     "fetch": "settings.allowRecorder--fetch-variable--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "clipsFolder",
+     "channel": "settings.clipsFolder--variable--89620c98-e30f-11eb-ba80-0242ac130004",
+     "fetch": "settings.clipsFolder--fetch-variable--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "theme",
+     "channel": "settings.theme--variable--89620c98-e30f-11eb-ba80-0242ac130004",
+     "fetch": "settings.theme--fetch-variable--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "hasRadeonGpu",
+     "channel": "settings.hasRadeonGpu--variable--89620c98-e30f-11eb-ba80-0242ac130004",
+     "fetch": "settings.hasRadeonGpu--fetch-variable--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "hasAfmfCompliantGpu",
+     "channel": "settings.hasAfmfCompliantGpu--variable--89620c98-e30f-11eb-ba80-0242ac130004",
+     "fetch": "settings.hasAfmfCompliantGpu--fetch-variable--89620c98-e30f-11eb-ba80-0242ac130004"
+    },
+    {
+     "name": "hasAdrenalinInstalled",
+     "channel": "settings.hasAdrenalinInstalled--variable--89620c98-e30f-11eb-ba80-0242ac130004",
+     "fetch": "settings.hasAdrenalinInstalled--fetch-variable--89620c98-e30f-11eb-ba80-0242ac130004"
+    }
+   ],
+   "streams": []
+  },
+  {
+   "key": "shortcuts--b451cddf-02ed-4d20-b94d-bcec767f4f16",
+   "name": "shortcuts",
+   "id": "b451cddf-02ed-4d20-b94d-bcec767f4f16",
+   "functions": [
+    {
+     "name": "playShortcutHandlerListener",
+     "channel": "shortcuts.playShortcutHandlerListener--b451cddf-02ed-4d20-b94d-bcec767f4f16"
+    },
+    {
+     "name": "pauseShortcutHandlerListener",
+     "channel": "shortcuts.pauseShortcutHandlerListener--b451cddf-02ed-4d20-b94d-bcec767f4f16"
+    }
+   ],
+   "variables": [],
+   "streams": []
+  },
+  {
+   "key": "splash-screen-window--20636e27-2847-4462-ada8-4bb099528a26",
+   "name": "splash-screen-window",
+   "id": "20636e27-2847-4462-ada8-4bb099528a26",
+   "functions": [
+    {
+     "name": "close",
+     "channel": "splash-screen-window.close--20636e27-2847-4462-ada8-4bb099528a26"
+    }
+   ],
+   "variables": [],
+   "streams": []
+  },
+  {
+   "key": "store--abb993d0-4405-4211-8511-3e666543340f",
+   "name": "store",
+   "id": "abb993d0-4405-4211-8511-3e666543340f",
+   "functions": [],
+   "variables": [
+    {
+     "name": "store",
+     "channel": "store.store--variable--abb993d0-4405-4211-8511-3e666543340f",
+     "fetch": "store.store--fetch-variable--abb993d0-4405-4211-8511-3e666543340f"
+    }
+   ],
+   "streams": []
+  },
+  {
+   "key": "theme--9343dc7b-609e-478f-92d3-4a90c6a1d8e4",
+   "name": "theme",
+   "id": "9343dc7b-609e-478f-92d3-4a90c6a1d8e4",
+   "functions": [],
+   "variables": [],
+   "streams": []
+  },
+  {
+   "key": "thumbnail--56510822-3a67-4e81-b7c1-c80d63601631",
+   "name": "thumbnail",
+   "id": "56510822-3a67-4e81-b7c1-c80d63601631",
+   "functions": [
+    {
+     "name": "getB64ThumbnailWithConcurrencyLimiter",
+     "channel": "thumbnail.getB64ThumbnailWithConcurrencyLimiter--56510822-3a67-4e81-b7c1-c80d63601631"
+    },
+    {
+     "name": "cancelGetThumbnail",
+     "channel": "thumbnail.cancelGetThumbnail--56510822-3a67-4e81-b7c1-c80d63601631"
+    },
+    {
+     "name": "getB64ThumbnailListWithConcurrencyLimiter",
+     "channel": "thumbnail.getB64ThumbnailListWithConcurrencyLimiter--56510822-3a67-4e81-b7c1-c80d63601631"
+    },
+    {
+     "name": "cancelGetThumbnailList",
+     "channel": "thumbnail.cancelGetThumbnailList--56510822-3a67-4e81-b7c1-c80d63601631"
+    }
+   ],
+   "variables": [],
+   "streams": []
+  },
+  {
+   "key": "toast--d6c67570-750a-43f6-87f9-f87d6d481f80",
+   "name": "toast",
+   "id": "d6c67570-750a-43f6-87f9-f87d6d481f80",
+   "functions": [],
+   "variables": [],
+   "streams": [
+    {
+     "name": "push",
+     "channel": "toast.push--stream--d6c67570-750a-43f6-87f9-f87d6d481f80"
+    }
+   ]
+  },
+  {
+   "key": "tray--4076eb38-9519-4f0e-bf2c-9e82c0506e1a",
+   "name": "tray",
+   "id": "4076eb38-9519-4f0e-bf2c-9e82c0506e1a",
+   "functions": [],
+   "variables": [],
+   "streams": []
+  },
+  {
+   "key": "updater--ed13c076-c72d-48ef-b3f2-0aa352d4a779",
+   "name": "updater",
+   "id": "ed13c076-c72d-48ef-b3f2-0aa352d4a779",
+   "functions": [
+    {
+     "name": "checkForUpdates",
+     "channel": "updater.checkForUpdates--ed13c076-c72d-48ef-b3f2-0aa352d4a779"
+    },
+    {
+     "name": "quitAndInstall",
+     "channel": "updater.quitAndInstall--ed13c076-c72d-48ef-b3f2-0aa352d4a779"
+    }
+   ],
+   "variables": [
+    {
+     "name": "enabled",
+     "channel": "updater.enabled--variable--ed13c076-c72d-48ef-b3f2-0aa352d4a779",
+     "fetch": "updater.enabled--fetch-variable--ed13c076-c72d-48ef-b3f2-0aa352d4a779"
+    },
+    {
+     "name": "currentVersion",
+     "channel": "updater.currentVersion--variable--ed13c076-c72d-48ef-b3f2-0aa352d4a779",
+     "fetch": "updater.currentVersion--fetch-variable--ed13c076-c72d-48ef-b3f2-0aa352d4a779"
+    },
+    {
+     "name": "status",
+     "channel": "updater.status--variable--ed13c076-c72d-48ef-b3f2-0aa352d4a779",
+     "fetch": "updater.status--fetch-variable--ed13c076-c72d-48ef-b3f2-0aa352d4a779"
+    }
+   ],
+   "streams": []
+  },
+  {
+   "key": "vertical-format--8f5f89ea-15c9-11ee-be56-0242ac120002",
+   "name": "vertical-format",
+   "id": "8f5f89ea-15c9-11ee-be56-0242ac120002",
+   "functions": [
+    {
+     "name": "saveVerticalFormatTemplateByTemplateId",
+     "channel": "vertical-format.saveVerticalFormatTemplateByTemplateId--8f5f89ea-15c9-11ee-be56-0242ac120002"
+    },
+    {
+     "name": "deleteVerticalFormatTemplateByTemplateId",
+     "channel": "vertical-format.deleteVerticalFormatTemplateByTemplateId--8f5f89ea-15c9-11ee-be56-0242ac120002"
+    },
+    {
+     "name": "resetDefaultVerticalTemplateById",
+     "channel": "vertical-format.resetDefaultVerticalTemplateById--8f5f89ea-15c9-11ee-be56-0242ac120002"
+    }
+   ],
+   "variables": [
+    {
+     "name": "templatesById",
+     "channel": "vertical-format.templatesById--variable--8f5f89ea-15c9-11ee-be56-0242ac120002",
+     "fetch": "vertical-format.templatesById--fetch-variable--8f5f89ea-15c9-11ee-be56-0242ac120002"
+    },
+    {
+     "name": "templatesIdsByExtractionProjectId",
+     "channel": "vertical-format.templatesIdsByExtractionProjectId--variable--8f5f89ea-15c9-11ee-be56-0242ac120002",
+     "fetch": "vertical-format.templatesIdsByExtractionProjectId--fetch-variable--8f5f89ea-15c9-11ee-be56-0242ac120002"
+    }
+   ],
+   "streams": []
+  },
+  {
+   "key": "new-video-analyzer--1e8ecdca-2af4-44f8-9014-254f3e8e22e0",
+   "name": "new-video-analyzer",
+   "id": "1e8ecdca-2af4-44f8-9014-254f3e8e22e0",
+   "functions": [
+    {
+     "name": "generateTranscriptForVideoEditor",
+     "channel": "new-video-analyzer.generateTranscriptForVideoEditor--1e8ecdca-2af4-44f8-9014-254f3e8e22e0"
+    },
+    {
+     "name": "createAnalyzerTaskByExtractionProjectId",
+     "channel": "new-video-analyzer.createAnalyzerTaskByExtractionProjectId--1e8ecdca-2af4-44f8-9014-254f3e8e22e0"
+    },
+    {
+     "name": "cancelAnalyzerTaskByExtractionProjectId",
+     "channel": "new-video-analyzer.cancelAnalyzerTaskByExtractionProjectId--1e8ecdca-2af4-44f8-9014-254f3e8e22e0"
+    },
+    {
+     "name": "createSuggestedMoments",
+     "channel": "new-video-analyzer.createSuggestedMoments--1e8ecdca-2af4-44f8-9014-254f3e8e22e0"
+    },
+    {
+     "name": "generateKeywordEvents",
+     "channel": "new-video-analyzer.generateKeywordEvents--1e8ecdca-2af4-44f8-9014-254f3e8e22e0"
+    },
+    {
+     "name": "tryTogglePauseResumeAnalysisByExtractionProjectId",
+     "channel": "new-video-analyzer.tryTogglePauseResumeAnalysisByExtractionProjectId--1e8ecdca-2af4-44f8-9014-254f3e8e22e0"
+    }
+   ],
+   "variables": [
+    {
+     "name": "analyzerTasksByExtractionProjectId",
+     "channel": "new-video-analyzer.analyzerTasksByExtractionProjectId--variable--1e8ecdca-2af4-44f8-9014-254f3e8e22e0",
+     "fetch": "new-video-analyzer.analyzerTasksByExtractionProjectId--fetch-variable--1e8ecdca-2af4-44f8-9014-254f3e8e22e0"
+    },
+    {
+     "name": "lastGameAnalyzed",
+     "channel": "new-video-analyzer.lastGameAnalyzed--variable--1e8ecdca-2af4-44f8-9014-254f3e8e22e0",
+     "fetch": "new-video-analyzer.lastGameAnalyzed--fetch-variable--1e8ecdca-2af4-44f8-9014-254f3e8e22e0"
+    }
+   ],
+   "streams": []
+  },
+  {
+   "key": "video-download-manager--30694b3f-4f4e-40dd-93bc-90832fbc1d62",
+   "name": "video-download-manager",
+   "id": "30694b3f-4f4e-40dd-93bc-90832fbc1d62",
+   "functions": [
+    {
+     "name": "fetchRemoteVideoMetadata",
+     "channel": "video-download-manager.fetchRemoteVideoMetadata--30694b3f-4f4e-40dd-93bc-90832fbc1d62"
+    },
+    {
+     "name": "createDownloadTaskByExtractionProjectId",
+     "channel": "video-download-manager.createDownloadTaskByExtractionProjectId--30694b3f-4f4e-40dd-93bc-90832fbc1d62"
+    },
+    {
+     "name": "cancelDownloadTaskByExtractionProjectId",
+     "channel": "video-download-manager.cancelDownloadTaskByExtractionProjectId--30694b3f-4f4e-40dd-93bc-90832fbc1d62"
+    },
+    {
+     "name": "tryTogglePauseResumeDownloadByExtractionProjectId",
+     "channel": "video-download-manager.tryTogglePauseResumeDownloadByExtractionProjectId--30694b3f-4f4e-40dd-93bc-90832fbc1d62"
+    }
+   ],
+   "variables": [
+    {
+     "name": "downloadTasksByExtractionProjectId",
+     "channel": "video-download-manager.downloadTasksByExtractionProjectId--variable--30694b3f-4f4e-40dd-93bc-90832fbc1d62",
+     "fetch": "video-download-manager.downloadTasksByExtractionProjectId--fetch-variable--30694b3f-4f4e-40dd-93bc-90832fbc1d62"
+    }
+   ],
+   "streams": []
+  },
+  {
+   "key": "video-editor--9f262126-ede3-406f-98f3-689438db23c0",
+   "name": "video-editor",
+   "id": "9f262126-ede3-406f-98f3-689438db23c0",
+   "functions": [
+    {
+     "name": "createVideoEditorProject",
+     "channel": "video-editor.createVideoEditorProject--9f262126-ede3-406f-98f3-689438db23c0"
+    },
+    {
+     "name": "getVideoEditorProjectById",
+     "channel": "video-editor.getVideoEditorProjectById--9f262126-ede3-406f-98f3-689438db23c0"
+    },
+    {
+     "name": "updateVideoEditorProjectById",
+     "channel": "video-editor.updateVideoEditorProjectById--9f262126-ede3-406f-98f3-689438db23c0"
+    },
+    {
+     "name": "getVideoEditorStateByAutoMontageId",
+     "channel": "video-editor.getVideoEditorStateByAutoMontageId--9f262126-ede3-406f-98f3-689438db23c0"
+    },
+    {
+     "name": "getVideoEditorStateFromAutoMontageConfig",
+     "channel": "video-editor.getVideoEditorStateFromAutoMontageConfig--9f262126-ede3-406f-98f3-689438db23c0"
+    },
+    {
+     "name": "updateVideoEditorProjectNameById",
+     "channel": "video-editor.updateVideoEditorProjectNameById--9f262126-ede3-406f-98f3-689438db23c0"
+    },
+    {
+     "name": "importLocalVideoAssets",
+     "channel": "video-editor.importLocalVideoAssets--9f262126-ede3-406f-98f3-689438db23c0"
+    },
+    {
+     "name": "importLocalOverlayAssets",
+     "channel": "video-editor.importLocalOverlayAssets--9f262126-ede3-406f-98f3-689438db23c0"
+    },
+    {
+     "name": "dropVideoEditorAssetWithMissingFiles",
+     "channel": "video-editor.dropVideoEditorAssetWithMissingFiles--9f262126-ede3-406f-98f3-689438db23c0"
+    },
+    {
+     "name": "deleteVideoEditorProjectById",
+     "channel": "video-editor.deleteVideoEditorProjectById--9f262126-ede3-406f-98f3-689438db23c0"
+    },
+    {
+     "name": "getVideoEditorProjectList",
+     "channel": "video-editor.getVideoEditorProjectList--9f262126-ede3-406f-98f3-689438db23c0"
+    },
+    {
+     "name": "refreshVideoEditorProjectList",
+     "channel": "video-editor.refreshVideoEditorProjectList--9f262126-ede3-406f-98f3-689438db23c0"
+    },
+    {
+     "name": "exportMontage",
+     "channel": "video-editor.exportMontage--9f262126-ede3-406f-98f3-689438db23c0"
+    },
+    {
+     "name": "relinkOverlayAsset",
+     "channel": "video-editor.relinkOverlayAsset--9f262126-ede3-406f-98f3-689438db23c0"
+    },
+    {
+     "name": "relinkAudioAsset",
+     "channel": "video-editor.relinkAudioAsset--9f262126-ede3-406f-98f3-689438db23c0"
+    }
+   ],
+   "variables": [
+    {
+     "name": "videoEditorProjectList",
+     "channel": "video-editor.videoEditorProjectList--variable--9f262126-ede3-406f-98f3-689438db23c0",
+     "fetch": "video-editor.videoEditorProjectList--fetch-variable--9f262126-ede3-406f-98f3-689438db23c0"
+    },
+    {
+     "name": "videoEditorProjectsCount",
+     "channel": "video-editor.videoEditorProjectsCount--variable--9f262126-ede3-406f-98f3-689438db23c0",
+     "fetch": "video-editor.videoEditorProjectsCount--fetch-variable--9f262126-ede3-406f-98f3-689438db23c0"
+    }
+   ],
+   "streams": []
+  }
+ ],
+ "bridgeKeys": [
+  "ai-events--000ba107-5e70-4ab7-9dd3-c4546a374dbe",
+  "analytics--d64bcfe1-56b1-4702-b482-6de5a93e1abe",
+  "announcements--a258e6c7-7889-4206-80d8-a39c7c19ec3d",
+  "application--48a3b76b-32cf-458d-bdb0-1363900dc24a",
+  "auto-edits--e528982a-9f44-4c2d-863d-b9c06694700b",
+  "automontage--52518e2d-cf3f-4f1e-a3f7-cc4f3a2c2c63",
+  "block-sleep-mode--16df94f9-1ea4-4e77-bad0-51b1a427d1e43",
+  "bookmark--092c81d7-61bf-4fa6-bb7d-18b53efc9bbe",
+  "clipboard--4df0d6e6-900d-11ec-b909-0242ac120002",
+  "error--33d518e6-2661-4599-a601-739ef512cdd8",
+  "extraction-projects--0da00f51-21eb-4b1a-9d86-5e5f4ace10d8",
+  "flags--7b1ce7d5-279f-4f76-861e-69bb987022f6",
+  "games--97cd1ed6-858b-46fe-9bb8-2e7a2b49bda2",
+  "local-video--7acd32c0-6c78-4a82-998f-0c9ce5c7585d",
+  "logger--1b78c6ec-7b5c-444c-9b82-34ba0ca72ce5",
+  "login--1685ed40-84e7-4da3-af86-cf690e01e5dd",
+  "window--c919a074-e305-11eb-ba80-0242ac130004",
+  "montage-maker--c77d0c71-e80b-4c1d-88a8-dd0fbf95f796",
+  "music--7392cb91-0350-45b6-9e65-3a5c3baaa0e7",
+  "nativeVideoStream--b3404154-89b3-4139-9992-713567fc8868",
+  "npu--588ac6e8-9cc9-462a-9d18-adb135fc8c4b",
+  "onboarding--47eb27a6-a754-4201-9042-c23df0463d51",
+  "recorder--697df756-0f2b-4b79-b46e-7b9feab2c2ed",
+  "recordings--036a9a48-ddbb-4396-92f3-22496facf610",
+  "settings--89620c98-e30f-11eb-ba80-0242ac130004",
+  "shortcuts--b451cddf-02ed-4d20-b94d-bcec767f4f16",
+  "splash-screen-window--20636e27-2847-4462-ada8-4bb099528a26",
+  "store--abb993d0-4405-4211-8511-3e666543340f",
+  "theme--9343dc7b-609e-478f-92d3-4a90c6a1d8e4",
+  "thumbnail--56510822-3a67-4e81-b7c1-c80d63601631",
+  "toast--d6c67570-750a-43f6-87f9-f87d6d481f80",
+  "tray--4076eb38-9519-4f0e-bf2c-9e82c0506e1a",
+  "updater--ed13c076-c72d-48ef-b3f2-0aa352d4a779",
+  "vertical-format--8f5f89ea-15c9-11ee-be56-0242ac120002",
+  "new-video-analyzer--1e8ecdca-2af4-44f8-9014-254f3e8e22e0",
+  "video-download-manager--30694b3f-4f4e-40dd-93bc-90832fbc1d62",
+  "video-editor--9f262126-ede3-406f-98f3-689438db23c0"
+ ]
+}
