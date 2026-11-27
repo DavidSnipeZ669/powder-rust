@@ -123,7 +123,7 @@
     })
     if (ok && id) btn('Share this game', false, async () => {
       const r = await post('/__pw/x/share-game', { id })
-      o.querySelector('#pwrs-status').textContent = r.ok ? 'Saved ' + r.zip + '. Drag it into the GitHub page that just opened and click Submit (needs a free GitHub account).' : 'Could not share: ' + (r.error || 'unknown error')
+      o.querySelector('#pwrs-status').textContent = r.ok && r.uploaded ? 'Shared! It is waiting for a community reviewer to approve it (the page that opened shows its progress). Once approved, everyone using Rewind gets it automatically.' : r.ok ? 'Saved ' + r.zip + '. Drag it into the GitHub page that just opened and click Submit (needs a free GitHub account).' : 'Could not share: ' + (r.error || 'unknown error')
     })
     if (ok && id) o.querySelector('#pwrs-status').textContent += ' A video only shows some of a game\'s events: click Review events to remove wrong ones and add missing ones.'
   }

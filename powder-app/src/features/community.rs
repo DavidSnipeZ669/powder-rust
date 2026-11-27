@@ -47,6 +47,21 @@ fn is_safe_id(id: &str) -> bool {
     !id.is_empty() && id.len() <= 32 && id.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
 }
 
+/// The community relay (Cloudflare Worker): its address lives in the repo's games/config.json
+/// ({"worker": "https://..."}), so it can be set or moved without a new Rewind release.
+fn worker_url() -> Option<String> {
+    static W: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
+    W.get_or_init(|| {
+        if let Ok(u) = std::env::var("REWIND_WORKER_URL") {
+            return Some(u);
+        }
+        let b = get_bytes(&raw("config.json")).ok()?;
+        let v: Value = serde_json::from_slice(&b).ok()?;
+        v["worker"].as_str().filter(|u| u.starts_with("https://")).map(|u| u.trim_end_matches('/').to_string())
+    })
+    .clone()
+}
+
 fn get_bytes(url: &str) -> Result<Vec<u8>> {
     let r = super::download::agent().get(url).set("User-Agent", "Rewind").call()?;
     let mut b = Vec::new();
@@ -70,7 +85,12 @@ pub fn start_sync() {
 }
 
 fn sync() -> Result<usize> {
-    let idx: Value = serde_json::from_slice(&get_bytes(&raw("index.json")).context("reading the community games list")?)?;
+    // approved games: from the relay (built from the repo), else the repo's index.json
+    let from_worker = worker_url().and_then(|w| get_bytes(&format!("{w}/index")).ok()).and_then(|b| serde_json::from_slice::<Value>(&b).ok()).filter(|v| v["games"].is_array());
+    let idx: Value = match from_worker {
+        Some(v) => v,
+        None => serde_json::from_slice(&get_bytes(&raw("index.json")).context("reading the community games list")?)?,
+    };
     let games = idx["games"].as_array().cloned().unwrap_or_default();
     let mut state = load_state();
     let dir = games_dir();
@@ -153,10 +173,47 @@ fn install(id: &str) -> Result<()> {
 
 /// Zip a game pack made on this PC and open a pre-filled "new game" issue on GitHub.
 pub fn share(id: &str) -> Value {
+    if let Some(w) = worker_url() {
+        match upload(id, &w) {
+            Ok(url) => {
+                super::core::open_path(&url);
+                return json!({"ok": true, "uploaded": true, "url": url});
+            }
+            Err(e) => crate::log(&format!("community upload failed, falling back to a zip: {e:#}")),
+        }
+    }
     match share_inner(id) {
         Ok(zip) => json!({"ok": true, "zip": zip.display().to_string()}),
         Err(e) => json!({"ok": false, "error": format!("{e:#}")}),
     }
+}
+
+/// Send the game to the relay, which opens a pull request for the reviewers. Returns its link.
+fn upload(id: &str, worker: &str) -> Result<String> {
+    use base64::Engine;
+    if !is_safe_id(id) {
+        bail!("unknown game");
+    }
+    let src = games_dir().join(id);
+    let meta: Value = std::fs::read(src.join("game.json")).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
+    let mut files = serde_json::Map::new();
+    for f in list_files(&src)? {
+        if f == "my-edits.json" {
+            continue;
+        }
+        files.insert(f.clone(), json!(base64::engine::general_purpose::STANDARD.encode(std::fs::read(src.join(&f))?)));
+    }
+    let body = json!({"id": id, "name": meta["name"].as_str().unwrap_or(id), "author": meta["authors"].as_array().and_then(|a| a.first()).and_then(|v| v.as_str()).unwrap_or("a Rewind user"), "files": files});
+    let r = super::download::agent().post(&format!("{worker}/submit")).set("User-Agent", "Rewind").send_json(body);
+    let v: Value = match r {
+        Ok(r) => r.into_json()?,
+        Err(ureq::Error::Status(_, r)) => r.into_json().unwrap_or(json!({})),
+        Err(e) => bail!("{e}"),
+    };
+    if v["ok"] != true {
+        bail!("{}", v["error"].as_str().unwrap_or("the upload was refused"));
+    }
+    Ok(v["url"].as_str().unwrap_or("").to_string())
 }
 
 fn share_inner(id: &str) -> Result<PathBuf> {
