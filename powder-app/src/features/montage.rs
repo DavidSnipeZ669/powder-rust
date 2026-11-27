@@ -48,6 +48,11 @@ impl MontageProcess {
                     }
                 }
                 n if n.ends_with("ERROR_JSON") || n == "connection-closed" => {
+                    if n == "connection-closed" {
+                        // unblock every chunk still waiting (an endless wait here froze the
+                        // interface after leaving the editor)
+                        ch2.lock().clear();
+                    }
                     if let Some(t) = tx.lock().take() {
                         let _ = t.send(Err(anyhow::anyhow!("montage_maker: {n} {data}")));
                     }
@@ -79,11 +84,19 @@ impl MontageProcess {
         let id = self.next_req.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         let (tx, rx) = channel();
         self.chunks.lock().insert(id, tx);
-        self.proc.call("render_chunk", Some(&json!({"chunkIndex": index, "outputPath": out, "requestId": id})))?;
-        Ok(rx.recv()?)
+        if let Err(e) = self.proc.call("render_chunk", Some(&json!({"chunkIndex": index, "outputPath": out, "requestId": id}))) {
+            self.chunks.lock().remove(&id);
+            return Err(e);
+        }
+        // never wait forever: a chunk that was cancelled or whose process ended gets no answer
+        let r = rx.recv_timeout(std::time::Duration::from_secs(60));
+        self.chunks.lock().remove(&id);
+        Ok(r.map_err(|_| anyhow::anyhow!("chunk {index} was cancelled or took too long"))?)
     }
 
     pub fn cancel_all_chunks(&self) -> Result<()> {
+        // cancelled chunks get no result: release everything waiting for one
+        self.chunks.lock().clear();
         self.proc.call("cancel_all_render_chunk", None)?;
         Ok(())
     }
@@ -94,6 +107,7 @@ impl MontageProcess {
 
     pub fn stop(&self) {
         self.killed.store(true, std::sync::atomic::Ordering::SeqCst);
+        self.chunks.lock().clear();
         self.proc.kill();
     }
 }

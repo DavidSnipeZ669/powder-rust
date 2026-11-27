@@ -102,6 +102,40 @@ fn full_screen_crop(src: &str) -> Option<String> {
     None
 }
 
+/// Every screen area with its rectangle.
+fn crops_with_coords(src: &str) -> Vec<(String, [f32; 4])> {
+    let Some((s, e)) = block(src, "ocrConfig") else { return vec![] };
+    let mut out = Vec::new();
+    let mut name: Option<String> = None;
+    for l in src[s..e].lines() {
+        let l = l.trim();
+        if let Some(n) = field(l, "cropName") {
+            name = Some(n.to_string());
+        }
+        if let (Some(i), Some(n)) = (l.find("cropCoords = {"), name.as_ref()) {
+            let v: Vec<f32> = l[i + 14..].split(['}', ',']).filter_map(|x| x.trim().parse().ok()).collect();
+            if v.len() >= 4 {
+                out.push((n.clone(), [v[0], v[1], v[2], v[3]]));
+            }
+        }
+    }
+    out
+}
+
+fn same_rect(a: &[f32; 4], b: &[f32; 4]) -> bool {
+    a.iter().zip(b).all(|(x, y)| (x - y).abs() < 0.01)
+}
+
+/// Add a screen area to the game's crops list.
+fn add_crop(src: &str, name: &str, c: &[f32; 4]) -> Result<String> {
+    let (s, e) = block(src, "ocrConfig").context("ocrConfig not found in game_postprocess.lua")?;
+    let crops_end = s + src[s..e].rfind("\n    }").context("crops list not found")?;
+    let entry = format!("\n        {{\n            cropName = \"{name}\",\n            debug = false,\n            cropCoords = {{ {:.3}, {:.3}, {:.3}, {:.3} }},\n            detectorDilateDiameter = 5,\n            detectorMinimumArea = 40,\n            detectorMargin = 8,\n            recogniserStretchVertical = false,\n            restrictedCharacters = \"\"\n        }},", c[0], c[1], c[2], c[3]);
+    let before = src[..crops_end].trim_end_matches([' ', '\n']).to_string();
+    let sep = if before.ends_with(',') || before.ends_with('{') { "" } else { "," };
+    Ok(format!("{before}{sep}{entry}{}", &src[crops_end..]))
+}
+
 /// For the editor: the game's detectors, the screen areas and the event names it shows.
 pub fn load(id: &str) -> Value {
     match load_inner(id) {
@@ -118,7 +152,18 @@ fn load_inner(id: &str) -> Result<Value> {
         events["events"].as_array().and_then(|a| a.iter().find(|e| e["name"] == ev)).and_then(|e| e["displayName"].as_str().map(String::from)).unwrap_or_else(|| ev.to_string())
     };
     let name = std::fs::read(dir.join("game.json")).ok().and_then(|b| serde_json::from_slice::<Value>(&b).ok()).and_then(|v| v["name"].as_str().map(String::from)).unwrap_or_else(|| id.to_string());
-    let rows: Vec<Value> = parse_detectors(&src).into_iter().map(|d| json!({"event": d.event, "displayName": display(&d.event), "area": d.crop, "words": d.words})).collect();
+    let rects = crops_with_coords(&src);
+    let rows: Vec<Value> = parse_detectors(&src)
+        .into_iter()
+        .map(|d| {
+            let mut r = json!({"event": d.event, "displayName": display(&d.event), "area": d.crop, "words": d.words});
+            event_settings(&events, &d.event, &mut r);
+            if let Some((_, c)) = rects.iter().find(|(n, _)| *n == d.crop) {
+                r["areaCoords"] = json!(c);
+            }
+            r
+        })
+        .collect();
     let used: Vec<String> = parse_detectors(&src).into_iter().flat_map(|d| d.words).collect();
     let suggestions: Vec<Value> = std::fs::read(dir.join("suggestions.json"))
         .ok()
@@ -133,6 +178,197 @@ fn load_inner(id: &str) -> Result<Value> {
         areas.push(ANYWHERE.into());
     }
     Ok(json!({"id": id, "name": name, "rows": rows, "areas": areas, "suggestions": suggestions, "fullScreen": full, "edited": dir.join(".original").exists(), "folder": dir.display().to_string()}))
+}
+
+/// Clip time before/after (ms) and importance of an event, from events.json.
+fn event_settings(events: &Value, ev: &str, r: &mut Value) {
+    let e = events["events"].as_array().and_then(|a| a.iter().find(|e| e["name"] == ev));
+    let ms = |k: &str| e.and_then(|e| e["automontage"][k].as_f64()).map(|s| (s * 1000.0).round()).unwrap_or(1000.0);
+    r["msBefore"] = json!(ms("offsetBefore"));
+    r["msAfter"] = json!(ms("offsetAfter"));
+    r["importance"] = json!(e.and_then(|e| e["eventScore"].as_f64()).unwrap_or(10.0));
+}
+
+/// Another game's events as a starting point. A game added with Rewind gives everything (words,
+/// screen areas, clip times, importance); a game Powder supports gives its event names, clip
+/// times and importance (its detection is Powder's own AI, so the words are just the names).
+pub fn template(id: &str) -> Value {
+    if pack_dir(id).is_ok() {
+        return load(id);
+    }
+    let Some(m) = super::cues::model(id) else { return json!({"error": "unknown game"}) };
+    // Powder's own text-reading games: their game_postprocess.lua has the words and screen areas
+    let lua = super::games::ai_configs(&super::ctx()).map(|a| a.join("visual_cues").join(id).join("game_postprocess.lua")).and_then(|p| std::fs::read_to_string(p).ok()).unwrap_or_default();
+    let (crops, found) = official_detectors(&lua);
+    let name = super::games::find(id).and_then(|g| g["name"].as_str().map(String::from)).unwrap_or_else(|| id.to_string());
+    let rows: Vec<Value> = m["events"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default()
+        .iter()
+        .filter_map(|e| {
+            let ev = e["name"].as_str()?;
+            let dn = e["displayName"].as_str().unwrap_or(ev);
+            let ms = |k: &str| e["automontage"][k].as_f64().filter(|s| *s > 0.0).map(|s| (s * 1000.0).round()).unwrap_or(1000.0);
+            let base = json!({"event": ev, "displayName": dn, "msBefore": ms("offsetBefore"), "msAfter": ms("offsetAfter"), "importance": e["eventScore"].as_f64().unwrap_or(10.0)});
+            let mine: Vec<&(String, String, Vec<String>)> = found.iter().filter(|f| f.0 == ev).collect();
+            if mine.is_empty() {
+                let mut r = base;
+                r["words"] = json!([dn.to_uppercase()]);
+                r["area"] = json!(ANYWHERE);
+                return Some(vec![r]);
+            }
+            Some(
+                mine.into_iter()
+                    .map(|(_, crop, words)| {
+                        let mut r = base.clone();
+                        r["words"] = json!(words);
+                        match crops.iter().find(|(n, _)| n == crop) {
+                            Some((n, c)) => {
+                                r["area"] = json!(n);
+                                r["areaCoords"] = json!(c);
+                            }
+                            None => r["area"] = json!(ANYWHERE),
+                        }
+                        r
+                    })
+                    .collect(),
+            )
+        })
+        .flatten()
+        .collect();
+    let words_known = !found.is_empty();
+    json!({"id": id, "name": name, "rows": rows, "official": true, "wordsKnown": words_known})
+}
+
+/// The words and screen areas in one of Powder's own text-reading games (game_postprocess.lua
+/// written by hand, e.g. CODBO6): crops, then (event, crop, words) for every detector list found.
+fn official_detectors(src: &str) -> (Vec<(String, [f32; 4])>, Vec<(String, String, Vec<String>)>) {
+    let strs = |s: &str| -> Vec<String> {
+        let mut out = Vec::new();
+        let mut cur: Option<(char, String)> = None;
+        for c in s.chars() {
+            match &mut cur {
+                Some((q, buf)) if c == *q => {
+                    out.push(std::mem::take(buf));
+                    cur = None;
+                }
+                Some((_, buf)) => buf.push(c),
+                None if c == '"' || c == '\'' => cur = Some((c, String::new())),
+                None => {}
+            }
+        }
+        out
+    };
+    // crops
+    let mut crops: Vec<(String, [f32; 4])> = Vec::new();
+    let mut name: Option<String> = None;
+    for l in src.lines() {
+        let t = l.trim();
+        if t.starts_with("cropName") {
+            name = strs(t).into_iter().next();
+        }
+        if let (Some(i), Some(n)) = (t.find("cropCoords"), name.as_ref()) {
+            if let Some(b) = t[i..].find('{') {
+                let v: Vec<f32> = t[i + b + 1..].split(['}', ',']).filter_map(|x| x.trim().parse().ok()).collect();
+                if v.len() >= 4 {
+                    crops.push((n.clone(), [v[0], v[1], v[2], v[3]]));
+                    name = None;
+                }
+            }
+        }
+    }
+    let lines: Vec<&str> = src.lines().collect();
+    let crop_in = |l: &str| -> Option<String> { strs(l).into_iter().find(|w| crops.iter().any(|(n, _)| n == w)) };
+    let mut found = Vec::new();
+    for (i, l) in lines.iter().enumerate() {
+        let t = l.trim();
+        let Some(rest) = t.strip_prefix("local ") else { continue };
+        let Some((var, body)) = rest.split_once('=') else { continue };
+        let var = var.trim();
+        let body = body.trim();
+        if !body.starts_with('{') || var.contains(' ') || var.is_empty() {
+            continue;
+        }
+        // the whole table (may span lines)
+        let mut text = String::new();
+        let mut depth = 0i32;
+        let mut end = i;
+        'outer: for (k, l2) in lines.iter().enumerate().skip(i) {
+            let part = if k == i { body } else { l2 };
+            for c in part.chars() {
+                if c == '{' { depth += 1 } else if c == '}' { depth -= 1 }
+            }
+            text.push_str(part);
+            text.push('\n');
+            end = k;
+            if depth <= 0 {
+                break 'outer;
+            }
+        }
+        if text.contains("cropName") {
+            continue;
+        }
+        // where the table is used: the crop named on that line or just after
+        let usage = lines.iter().enumerate().skip(end + 1).find(|(_, u)| {
+            let u = u.trim();
+            u.contains(var) && !u.starts_with(&format!("local {var}"))
+        });
+        let Some((ui, _)) = usage else { continue };
+        let crop = (ui..(ui + 5).min(lines.len())).find_map(|k| crop_in(lines[k]));
+        let Some(crop) = crop else { continue };
+        if text.contains("event") {
+            for entry in text.split("event").skip(1) {
+                let e = entry.trim_start().trim_start_matches('=').trim();
+                let Some(ev) = strs(e).into_iter().next() else { continue };
+                let words = e.find("match").map(|m| {
+                    let a = &e[m..];
+                    let b = a.find('{').map(|x| x + 1).unwrap_or(0);
+                    let c = a.find('}').unwrap_or(a.len());
+                    strs(&a[b.min(c)..c])
+                });
+                if let Some(w) = words.filter(|w| !w.is_empty()) {
+                    found.push((ev, crop.clone(), w));
+                }
+            }
+        } else {
+            // a plain word list: the event is the first one the code returns after using it
+            let words = strs(&text);
+            let ev = (ui..(ui + 15).min(lines.len())).find_map(|k| {
+                let t = lines[k].trim();
+                t.strip_prefix("return ").and_then(|r| strs(r).into_iter().next())
+            });
+            if let (Some(ev), false) = (ev, words.is_empty()) {
+                found.push((ev, crop, words));
+            }
+        }
+    }
+    (crops, found)
+}
+
+/// Add Game with a template: the template's events plus whatever the new game's scan found that
+/// the template doesn't have.
+pub fn apply_template(id: &str, template_id: &str) -> Result<usize> {
+    let t = template(template_id);
+    if let Some(e) = t["error"].as_str() {
+        bail!("{e}");
+    }
+    let mut rows = t["rows"].as_array().cloned().unwrap_or_default();
+    let names: Vec<String> = rows.iter().filter_map(|r| r["event"].as_str().map(String::from)).collect();
+    for r in load(id)["rows"].as_array().cloned().unwrap_or_default() {
+        if r["event"].as_str().map(|e| !names.iter().any(|n| n == e)).unwrap_or(false) {
+            rows.push(r);
+        }
+    }
+    save_inner(id, &Value::Array(rows))
+}
+
+/// The event a row stands for (new rows only have a display name).
+fn event_of(r: &Value) -> String {
+    match r["event"].as_str().filter(|e| !e.is_empty()) {
+        Some(e) => e.to_string(),
+        None => event_name(r["displayName"].as_str().unwrap_or("").trim()),
+    }
 }
 
 fn event_name(display: &str) -> String {
@@ -190,6 +426,27 @@ fn save_inner(id: &str, rows: &Value) -> Result<usize> {
             bail!("\"{display}\" needs letters or numbers in its name");
         }
         let mut area = r["area"].as_str().unwrap_or(ANYWHERE).to_string();
+        // a saved edit remembers where its area was: area names are made automatically, so after
+        // the game is rebuilt from more videos the same name can mean another part of the screen
+        let saved: Vec<f32> = r["areaCoords"].as_array().map(|a| a.iter().filter_map(|x| x.as_f64().map(|v| v as f32)).collect()).unwrap_or_default();
+        if saved.len() == 4 && area != ANYWHERE {
+            let want = [saved[0], saved[1], saved[2], saved[3]];
+            let crops = crops_with_coords(&src);
+            if !crops.iter().any(|(n, c)| *n == area && same_rect(c, &want)) {
+                if let Some((n, _)) = crops.iter().find(|(_, c)| same_rect(c, &want)) {
+                    area = n.clone();
+                } else {
+                    let mut name = format!("My{area}");
+                    let mut k = 2;
+                    while crops.iter().any(|(n, _)| *n == name) {
+                        name = format!("My{area}{k}");
+                        k += 1;
+                    }
+                    src = add_crop(&src, &name, &want)?;
+                    area = name;
+                }
+            }
+        }
         if area == ANYWHERE {
             if let Some(f) = full_screen_crop(&src) {
                 area = f;
@@ -289,6 +546,17 @@ fn save_inner(id: &str, rows: &Value) -> Result<usize> {
         if e["automontage"]["custom"] != true {
             e["automontage"] = clip_policy(n, &display);
         }
+        // the person's own clip times and importance for this event (from the editor)
+        if let Some(r) = rows.iter().find(|r| event_of(r) == *n && (r["msBefore"].is_number() || r["importance"].is_number())) {
+            if let (Some(b), Some(a)) = (r["msBefore"].as_f64(), r["msAfter"].as_f64()) {
+                e["automontage"]["offsetBefore"] = json!(b.max(0.0) / 1000.0);
+                e["automontage"]["offsetAfter"] = json!(a.max(0.0) / 1000.0);
+                e["automontage"]["custom"] = json!(true);
+            }
+            if let Some(i) = r["importance"].as_f64() {
+                e["eventScore"] = json!(i.max(0.0));
+            }
+        }
         e["instruction"] = json!(format!("* {display} *"));
         e["tooltip"] = json!(format!("When {} appears on screen.", words.join(" / ")));
         out.push(e);
@@ -298,7 +566,19 @@ fn save_inner(id: &str, rows: &Value) -> Result<usize> {
 
     // remember what the person changed, so improving the game with another video keeps it
     let baseline: Vec<String> = std::fs::read_to_string(bak.join("game_postprocess.lua")).map(|s| parse_detectors(&s).into_iter().map(|d| d.event).collect()).unwrap_or_default();
-    let rows_json: Vec<Value> = dets.iter().map(|(d, dn)| json!({"event": d.event, "displayName": dn, "area": d.crop, "words": d.words})).collect();
+    let rects = crops_with_coords(&std::fs::read_to_string(&lua_p).unwrap_or_default());
+    let evj_now: Value = serde_json::from_slice(&std::fs::read(&ev_p).unwrap_or_default()).unwrap_or(json!({}));
+    let rows_json: Vec<Value> = dets
+        .iter()
+        .map(|(d, dn)| {
+            let mut r = json!({"event": d.event, "displayName": dn, "area": d.crop, "words": d.words});
+            event_settings(&evj_now, &d.event, &mut r);
+            if let Some((_, c)) = rects.iter().find(|(n, _)| *n == d.crop) {
+                r["areaCoords"] = json!(c);
+            }
+            r
+        })
+        .collect();
     let _ = std::fs::write(dir.join("my-edits.json"), serde_json::to_vec_pretty(&json!({"baseline": baseline, "rows": rows_json}))?);
 
     reinstall(id)?;
@@ -443,9 +723,11 @@ pub fn clip_policy(name: &str, display: &str) -> serde_json::Value {
     } else if has(&["death", "killed by", "killedby", "eliminated by", "downed", "respawn", "spectat"]) {
         (false, false, 2, 2)
     } else if has(&["assist", "level", "xp", "others", "objective", "capture"]) {
-        (false, true, 5, 5)
+        (false, true, 2, 2)
     } else {
-        (true, false, 7, 7)
+        // Powder's own games use a few seconds; long ones chain every nearby event into one
+        // over-long moment that the montage maker drops, leaving an empty montage
+        (true, false, 3, 3)
     };
     serde_json::json!({"primary": primary, "secondary": secondary, "offsetBefore": before, "offsetAfter": after, "effectTypes": []})
 }

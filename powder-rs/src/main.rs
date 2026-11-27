@@ -3,37 +3,42 @@
 //! game configs (events.json + game_postprocess.lua), plus tools to add new games.
 
 mod analyze;
-mod audio;
-mod download;
 mod app_api;
-mod recorder;
-mod encode;
-mod jobs;
-mod library;
-mod montage;
-mod music;
-mod settings;
+mod audio;
 mod autogame;
 mod discover;
+mod download;
+mod encode;
+mod fight;
 mod game;
+mod jobs;
+mod library;
 mod lua_engine;
+mod montage;
+mod music;
 mod ocr;
-mod paths;
 mod patcher;
+mod paths;
+mod recorder;
 mod report;
 mod runtime;
+mod rwdmdl;
+mod settings;
 mod studio;
 mod tools;
 mod video;
 mod vision;
-mod rwdmdl;
 
 use anyhow::{bail, Context, Result};
 use clap::{Args, Parser, Subcommand};
 use std::path::{Path, PathBuf};
 
 #[derive(Parser)]
-#[command(name = "powder-rs", version, about = "Open game-highlight detection engine (Powder-compatible) + custom game tooling")]
+#[command(
+    name = "powder-rs",
+    version,
+    about = "Open game-highlight detection engine (Powder-compatible) + custom game tooling"
+)]
 struct Cli {
     #[command(flatten)]
     common: Common,
@@ -118,6 +123,22 @@ enum Cmd {
         #[arg(long)]
         dir: Option<PathBuf>,
     },
+    /// where each event's clip should start: the fight before it (ammo counter / fighting model);
+    /// prints JSON [{"t": sec, "start": sec or null}]
+    FightStarts {
+        video: PathBuf,
+        #[arg(long)]
+        id: String,
+        /// games folder
+        #[arg(long)]
+        dir: PathBuf,
+        /// event times in seconds, comma separated
+        #[arg(long)]
+        times: String,
+        /// longest lead-up before an event, seconds
+        #[arg(long, default_value_t = fight::MAX_BEFORE)]
+        max_before: f64,
+    },
     /// find events in a video with a game's .rwdmdl model (prints JSON)
     ModelDetect {
         video: PathBuf,
@@ -200,6 +221,9 @@ enum Cmd {
         /// improve an existing game (its id) with this video instead of creating a new game
         #[arg(long = "add-to")]
         add_to: Option<String>,
+        /// only scan the video for text (with --add-to; a later run with --reuse-scan uses it)
+        #[arg(long)]
+        scan_only: bool,
     },
     /// Auto mode step 1: read ALL on-screen text in a video and group repeats
     Discover {
@@ -315,7 +339,11 @@ enum Cmd {
         model: Option<PathBuf>,
     },
     /// Download a VOD/clip (Twitch, YouTube, Kick ...) with yt-dlp, plus chat spikes when available
-    Download { url: String, #[arg(long, short)] out: Option<PathBuf> },
+    Download {
+        url: String,
+        #[arg(long, short)]
+        out: Option<PathBuf>,
+    },
     /// List montage music (Powder's bundled tracks + your music folders)
     Music,
     /// Draw a game's crops on a screenshot/frame and OCR them (for tuning cropCoords)
@@ -424,7 +452,14 @@ impl RateArgs {
             }
             None => (None, false),
         };
-        Ok((video::FpsSettings { sample, recording: self.recording_fps, game: self.game_fps }, native))
+        Ok((
+            video::FpsSettings {
+                sample,
+                recording: self.recording_fps,
+                game: self.game_fps,
+            },
+            native,
+        ))
     }
 }
 
@@ -463,10 +498,28 @@ fn main() {
 
 fn run() -> Result<()> {
     let cli = Cli::parse();
-    let ctx = Ctx { c: cli.common.clone() };
-    let cmd = cli.cmd.unwrap_or(Cmd::Studio { port: 7878, game: None });
+    let ctx = Ctx {
+        c: cli.common.clone(),
+    };
+    let cmd = cli.cmd.unwrap_or(Cmd::Studio {
+        port: 7878,
+        game: None,
+    });
     match cmd {
-        Cmd::Analyze { game, video, out, report, start, end, rate, max_height, debug_dir, debug_all, workers, no_skip } => {
+        Cmd::Analyze {
+            game,
+            video,
+            out,
+            report,
+            start,
+            end,
+            rate,
+            max_height,
+            debug_dir,
+            debug_all,
+            workers,
+            no_skip,
+        } => {
             let (fps, native) = rate.settings()?;
             let g = game::find_game(&game, &ctx.game_dirs())?;
             ctx.init_ort()?;
@@ -492,7 +545,16 @@ fn run() -> Result<()> {
             }
             println!("{} event(s):", a.events.len());
             for e in &a.events {
-                println!("  {:>10}  {}{}", e.timestamp, e.display_name, if e.known { "" } else { "  (not in events.json!)" });
+                println!(
+                    "  {:>10}  {}{}",
+                    e.timestamp,
+                    e.display_name,
+                    if e.known {
+                        ""
+                    } else {
+                        "  (not in events.json!)"
+                    }
+                );
             }
             let out = out.unwrap_or_else(|| {
                 let mut p = video.clone().into_os_string();
@@ -510,43 +572,99 @@ fn run() -> Result<()> {
         Cmd::ModelSimPrepare { dir } => {
             ctx.init_ort()?;
             let mut ocr = ocr::Ocr::load(&paths::ocr_models_dir(ctx.c.ocr_models.as_deref())?)?;
-            let phrases = vec![("kill".to_string(), vec!["KILL".to_string()]), ("doubleKill".to_string(), vec!["DOUBLE".to_string(), "KILL".to_string()])];
+            let phrases = vec![
+                ("kill".to_string(), vec!["KILL".to_string()]),
+                (
+                    "doubleKill".to_string(),
+                    vec!["DOUBLE".to_string(), "KILL".to_string()],
+                ),
+            ];
             let items = rwdmdl::sim_prepare(&dir, &phrases, &mut ocr)?;
             std::fs::write(dir.join("prepared.json"), serde_json::to_vec(&items)?)?;
             println!("prepared {} pictures", items.len());
         }
-        Cmd::ModelSimAll { dir, runs, mistakes, good, orders: only, seed } => {
-            let pool: Vec<rwdmdl::SimItem> = serde_json::from_slice(&std::fs::read(dir.join("prepared.json"))?)?;
-            let classes = vec!["nothing".to_string(), "kill".to_string(), "doubleKill".to_string()];
+        Cmd::ModelSimAll {
+            dir,
+            runs,
+            mistakes,
+            good,
+            orders: only,
+            seed,
+        } => {
+            let pool: Vec<rwdmdl::SimItem> =
+                serde_json::from_slice(&std::fs::read(dir.join("prepared.json"))?)?;
+            let classes = vec![
+                "nothing".to_string(),
+                "kill".to_string(),
+                "doubleKill".to_string(),
+            ];
             // the kill / double-kill detectors read the middle of the screen (where the popup is)
             let mid = [0.25f32, 0.30, 0.75, 0.70];
             let areas = vec![vec![], vec![mid], vec![mid]];
             let t0 = std::time::Instant::now();
             let nb = rwdmdl::sim_neighbours(&pool);
-            eprintln!("look-alike lists ready in {:.0}s", t0.elapsed().as_secs_f64());
+            eprintln!(
+                "look-alike lists ready in {:.0}s",
+                t0.elapsed().as_secs_f64()
+            );
             let mut orders: Vec<Vec<u8>> = Vec::new();
             fn perm(cur: &mut Vec<u8>, left: &mut Vec<u8>, out: &mut Vec<Vec<u8>>) {
-                if left.is_empty() { out.push(cur.clone()); return }
-                for i in 0..left.len() { let x = left.remove(i); cur.push(x); perm(cur, left, out); cur.pop(); left.insert(i, x); }
+                if left.is_empty() {
+                    out.push(cur.clone());
+                    return;
+                }
+                for i in 0..left.len() {
+                    let x = left.remove(i);
+                    cur.push(x);
+                    perm(cur, left, out);
+                    cur.pop();
+                    left.insert(i, x);
+                }
             }
             perm(&mut vec![], &mut vec![1, 2, 3, 4, 5], &mut orders);
             if let Some(o) = &only {
-                orders = o.split(',').map(|x| x.trim().bytes().map(|b| b - b'0').collect()).collect();
+                orders = o
+                    .split(',')
+                    .map(|x| x.trim().bytes().map(|b| b - b'0').collect())
+                    .collect();
             }
-            let jobs: Vec<(usize, u64)> = (0..orders.len()).flat_map(|o| (seed..seed + runs).map(move |r| (o, r))).collect();
+            let jobs: Vec<(usize, u64)> = (0..orders.len())
+                .flat_map(|o| (seed..seed + runs).map(move |r| (o, r)))
+                .collect();
             let results = std::sync::Mutex::new(vec![[0usize; 6]; orders.len()]);
             let done = std::sync::atomic::AtomicUsize::new(0);
             std::thread::scope(|sc| {
                 for t in 0..2 {
-                    let (jobs, orders, results, done, pool, nb, areas, classes) = (&jobs, &orders, &results, &done, &pool, &nb, &areas, &classes);
+                    let (jobs, orders, results, done, pool, nb, areas, classes) = (
+                        &jobs, &orders, &results, &done, &pool, &nb, &areas, &classes,
+                    );
                     sc.spawn(move || {
                         for (k, &(o, r)) in jobs.iter().enumerate() {
-                            if k % 2 != t { continue }
-                            let x = rwdmdl::sim_run_fast(pool, Some(nb), areas, classes, mistakes, good, &orders[o], r);
+                            if k % 2 != t {
+                                continue;
+                            }
+                            let x = rwdmdl::sim_run_fast(
+                                pool,
+                                Some(nb),
+                                areas,
+                                classes,
+                                mistakes,
+                                good,
+                                &orders[o],
+                                r,
+                            );
                             let mut g = results.lock().unwrap();
-                            for i in 0..6 { g[o][i] += x[i] }
+                            for i in 0..6 {
+                                g[o][i] += x[i]
+                            }
                             let d = done.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
-                            if d % 20 == 0 { eprintln!("{d}/{} runs ({:.0}s)", jobs.len(), t0.elapsed().as_secs_f64()) }
+                            if d % 20 == 0 {
+                                eprintln!(
+                                    "{d}/{} runs ({:.0}s)",
+                                    jobs.len(),
+                                    t0.elapsed().as_secs_f64()
+                                )
+                            }
                         }
                     });
                 }
@@ -555,40 +673,70 @@ fn run() -> Result<()> {
             let mut rows: Vec<(f64, String)> = Vec::new();
             let mut csv = String::from("order,mistakes_fixed,mistakes_review,mistakes_missed,good_kept,good_review,good_broken,clean_pct\n");
             for (o, x) in orders.iter().zip(res.iter()) {
-                let clean = (x[0] + x[3]) as f64 / ((x[0] + x[3] + x[2] + x[5]).max(1)) as f64 * 100.0;
+                let clean =
+                    (x[0] + x[3]) as f64 / ((x[0] + x[3] + x[2] + x[5]).max(1)) as f64 * 100.0;
                 let name: String = o.iter().map(|v| v.to_string()).collect();
-                csv += &format!("{name},{},{},{},{},{},{},{clean:.2}\n", x[0], x[1], x[2], x[3], x[4], x[5]);
+                csv += &format!(
+                    "{name},{},{},{},{},{},{},{clean:.2}\n",
+                    x[0], x[1], x[2], x[3], x[4], x[5]
+                );
                 rows.push((clean, format!("{name}  clean {clean:5.1}% | mistakes fixed {:>5} review {:>5} MISSED {:>5} | good kept {:>6} review {:>5} BROKEN {:>5}", x[0], x[1], x[2], x[3], x[4], x[5])));
             }
             std::fs::write(dir.join(format!("all-orders-{mistakes}-{good}.csv")), csv)?;
             rows.sort_by(|a, b| b.0.total_cmp(&a.0));
             println!("best 10:");
-            for r in rows.iter().take(10) { println!("  {}", r.1) }
-            if rows.len() <= 10 { return Ok(()); }
+            for r in rows.iter().take(10) {
+                println!("  {}", r.1)
+            }
+            if rows.len() <= 10 {
+                return Ok(());
+            }
             println!("worst 5:");
-            for r in rows.iter().rev().take(5) { println!("  {}", r.1) }
+            for r in rows.iter().rev().take(5) {
+                println!("  {}", r.1)
+            }
         }
-        Cmd::ModelSim { dir, runs, mistakes, good, order } => {
-            let pool: Vec<rwdmdl::SimItem> = serde_json::from_slice(&std::fs::read(dir.join("prepared.json"))?)?;
-            let classes = vec!["nothing".to_string(), "kill".to_string(), "doubleKill".to_string()];
-            let ord: Vec<u8> = order.split(',').filter_map(|x| x.trim().parse().ok()).collect();
+        Cmd::ModelSim {
+            dir,
+            runs,
+            mistakes,
+            good,
+            order,
+        } => {
+            let pool: Vec<rwdmdl::SimItem> =
+                serde_json::from_slice(&std::fs::read(dir.join("prepared.json"))?)?;
+            let classes = vec![
+                "nothing".to_string(),
+                "kill".to_string(),
+                "doubleKill".to_string(),
+            ];
+            let ord: Vec<u8> = order
+                .split(',')
+                .filter_map(|x| x.trim().parse().ok())
+                .collect();
             let mut tot = [0usize; 6];
             for r in 0..runs {
                 let x = rwdmdl::sim_run(&pool, &classes, mistakes, good, &ord, r + 1);
                 println!("run {:>2}: mistakes fixed {:>4} review {:>4} MISSED {:>4} | good kept {:>4} review {:>4} BROKEN {:>4}", r + 1, x[0], x[1], x[2], x[3], x[4], x[5]);
-                for i in 0..6 { tot[i] += x[i] }
+                for i in 0..6 {
+                    tot[i] += x[i]
+                }
             }
             println!("TOTAL  : mistakes fixed {:>4} review {:>4} MISSED {:>4} | good kept {:>4} review {:>4} BROKEN {:>4}", tot[0], tot[1], tot[2], tot[3], tot[4], tot[5]);
         }
         Cmd::ModelRestore { id, dir } => {
-            let games_dir = dir.or_else(|| ctx.c.games.first().cloned()).unwrap_or_else(|| paths::exe_dir().join("games"));
+            let games_dir = dir
+                .or_else(|| ctx.c.games.first().cloned())
+                .unwrap_or_else(|| paths::exe_dir().join("games"));
             let ds = rwdmdl::dataset_dir(&games_dir, &id);
             let (moved, locked) = rwdmdl::restore_and_lock(&id, &ds)?;
             println!("put {moved} picture(s) back where they were; {locked} picture(s) are now locked as sorted by you (the checks won't move them)");
         }
         Cmd::ModelTrain { video, id, dir } => {
             ctx.init_ort()?;
-            let games_dir = dir.or_else(|| ctx.c.games.first().cloned()).unwrap_or_else(|| paths::exe_dir().join("games"));
+            let games_dir = dir
+                .or_else(|| ctx.c.games.first().cloned())
+                .unwrap_or_else(|| paths::exe_dir().join("games"));
             let gdir = games_dir.join(&id);
             if !gdir.join("game.json").exists() {
                 bail!("game {id} doesn't exist yet - add it with add-game first");
@@ -597,15 +745,42 @@ fn run() -> Result<()> {
             std::fs::create_dir_all(&ds)?;
             let test_path = games_dir.join("_work").join(&id).join("test.events.json");
             if let Some(v) = &video {
-                let test: serde_json::Value = std::fs::read(&test_path).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
-                let evs: Vec<(String, f64)> = test["events"].as_array().into_iter().flatten().filter(|e| e["from_model"] != true).filter_map(|e| Some((e["name"].as_str()?.to_string(), e["time_sec"].as_f64()?))).collect();
-                eprintln!("[model] saving pictures of {} event(s) from the video", evs.len());
+                let test: serde_json::Value = std::fs::read(&test_path)
+                    .ok()
+                    .and_then(|b| serde_json::from_slice(&b).ok())
+                    .unwrap_or_default();
+                let evs: Vec<(String, f64)> = test["events"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter(|e| e["from_model"] != true)
+                    .filter_map(|e| {
+                        Some((e["name"].as_str()?.to_string(), e["time_sec"].as_f64()?))
+                    })
+                    .collect();
+                eprintln!(
+                    "[model] saving pictures of {} event(s) from the video",
+                    evs.len()
+                );
                 let _ = &evs;
-                let (p, n) = rwdmdl::extract_from_scan(&games_dir.join("_work").join(&id), &gdir, v, &id, &ds)?;
-                println!("saved {p} event picture(s) and {n} \"nothing\" picture(s) to {}", ds.display());
+                let (p, n) = rwdmdl::extract_from_scan(
+                    &games_dir.join("_work").join(&id),
+                    &gdir,
+                    v,
+                    &id,
+                    &ds,
+                )?;
+                println!(
+                    "saved {p} event picture(s) and {n} \"nothing\" picture(s) to {}",
+                    ds.display()
+                );
             }
             // the checks run in the order that left the fewest wrong pictures in simulations
             // (5, 2, 4, 1, 3): confident learning, re-read text, position, scan text again, look-alikes
+            let back = rwdmdl::return_reviewed(&id, &ds)?;
+            if back > 0 {
+                println!("{back} picture(s) from {id}_review get another check");
+            }
             let _ = rwdmdl::train_opts(&id, &ds, &[5], false);
             {
                 let libs = ctx.lua_libs()?;
@@ -618,7 +793,7 @@ fn run() -> Result<()> {
                 }
                 let far = rwdmdl::location_check_in(&id, &ds, &rwdmdl::detector_areas(&gdir))?;
                 if far > 0 {
-                    println!("fourth check (where on screen): {far} picture(s) had the event text outside the event's detector area - moved to {id}_review");
+                    println!("fourth check (where on screen): {far} picture(s) had the event text away from where that event shows in the same video - moved to {id}_review");
                 }
                 let back = rwdmdl::rescan_sort(&id, &ds)?;
                 if back > 0 {
@@ -629,40 +804,145 @@ fn run() -> Result<()> {
 
             let out = gdir.join(format!("{id}.rwdmdl"));
             m.save(&out)?;
-            println!("model trained on {} picture(s): {}", m.meta.trained_images, out.display());
+            println!(
+                "model trained on {} picture(s): {}",
+                m.meta.trained_images,
+                out.display()
+            );
             for (c, a) in &m.meta.accuracy {
                 println!("  {c:<18} {:.0}% right on held-back pictures", a * 100.0);
             }
+            // the "fighting" model: where clips start (works without a HUD, e.g. hardcore)
+            {
+                let ev_times: Vec<f64> = std::fs::read(&test_path)
+                    .ok()
+                    .and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok())
+                    .and_then(|t| t["events"].as_array().cloned())
+                    .unwrap_or_default()
+                    .iter()
+                    .filter_map(|e| e["time_sec"].as_f64())
+                    .collect();
+                let mut ocr = ocr::Ocr::load(&paths::ocr_models_dir(ctx.c.ocr_models.as_deref())?)?;
+                match fight::train(
+                    &ctx.ffmpeg()?,
+                    &mut ocr,
+                    &games_dir.join("_work").join(&id),
+                    &gdir,
+                    &id,
+                    &ds,
+                    video.as_deref(),
+                    &ev_times,
+                ) {
+                    Ok(Some(msg)) => println!("{msg}"),
+                    Ok(None) => {}
+                    Err(e) => println!("fight model: skipped ({e:#})"),
+                }
+            }
             // add what the model finds in this video to its test run (used to mark the video analysed)
-            let same_test = video.as_ref().map(|v| std::fs::read(&test_path).ok().and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok()).and_then(|t| t["video"].as_str().map(|p| Path::new(p).file_name() == v.file_name())).unwrap_or(false)).unwrap_or(false);
+            let same_test = video
+                .as_ref()
+                .map(|v| {
+                    std::fs::read(&test_path)
+                        .ok()
+                        .and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok())
+                        .and_then(|t| {
+                            t["video"]
+                                .as_str()
+                                .map(|p| Path::new(p).file_name() == v.file_name())
+                        })
+                        .unwrap_or(false)
+                })
+                .unwrap_or(false);
             if let (Some(v), true) = (&video, same_test) {
-                let found = rwdmdl::detect(&ctx.ffmpeg()?, v, rwdmdl::Model::load(&out)?, None, None)?;
-                let mut test: serde_json::Value = serde_json::from_slice(&std::fs::read(&test_path)?)?;
+                let found =
+                    rwdmdl::detect(&ctx.ffmpeg()?, v, rwdmdl::Model::load(&out)?, None, None)?;
+                let mut test: serde_json::Value =
+                    serde_json::from_slice(&std::fs::read(&test_path)?)?;
                 let mut evs = test["events"].as_array().cloned().unwrap_or_default();
                 let mut added = 0;
                 for (name, t) in found {
-                    if evs.iter().any(|e| e["name"] == name.as_str() && (e["time_sec"].as_f64().unwrap_or(-99.0) - t).abs() < 3.0) {
+                    if evs.iter().any(|e| {
+                        e["name"] == name.as_str()
+                            && (e["time_sec"].as_f64().unwrap_or(-99.0) - t).abs() < 3.0
+                    }) {
                         continue;
                     }
                     added += 1;
                     evs.push(serde_json::json!({"name": name, "display_name": name, "time_sec": t, "timestamp": analyze::fmt_ts(t), "known": true, "from_model": true}));
                 }
-                evs.sort_by(|a, b| a["time_sec"].as_f64().unwrap_or(0.0).total_cmp(&b["time_sec"].as_f64().unwrap_or(0.0)));
+                evs.sort_by(|a, b| {
+                    a["time_sec"]
+                        .as_f64()
+                        .unwrap_or(0.0)
+                        .total_cmp(&b["time_sec"].as_f64().unwrap_or(0.0))
+                });
                 test["events"] = serde_json::json!(evs);
                 std::fs::write(&test_path, serde_json::to_vec_pretty(&test)?)?;
-                println!("the model found {added} extra event(s) the text reading missed in this video");
+                println!(
+                    "the model found {added} extra event(s) the text reading missed in this video"
+                );
             }
         }
-        Cmd::ModelDetect { video, model, start, end } => {
+        Cmd::FightStarts {
+            video,
+            id,
+            dir,
+            times,
+            max_before,
+        } => {
             ctx.init_ort()?;
-            let found = rwdmdl::detect(&ctx.ffmpeg()?, &video, rwdmdl::Model::load(&model)?, start, end)?;
-            let v: Vec<_> = found.iter().map(|(n, t)| serde_json::json!({"name": n, "time_sec": t})).collect();
+            let ts: Vec<f64> = times.split(',').filter_map(|x| x.trim().parse().ok()).collect();
+            let gdir = dir.join(&id);
+            let mut ocr = ocr::Ocr::load(&paths::ocr_models_dir(ctx.c.ocr_models.as_deref())?).ok();
+            let st = fight::starts(&ctx.ffmpeg()?, ocr.as_mut(), &gdir, &id, &video, &ts, max_before)?;
+            let v: Vec<_> = ts
+                .iter()
+                .zip(st)
+                .map(|(t, s)| serde_json::json!({"t": t, "start": s}))
+                .collect();
             println!("{}", serde_json::to_string(&v)?);
         }
-        Cmd::AddGame { title, steam, video, game_files, rate, scan_fps, no_install, powder, offline, dir, overwrite, reuse_scan, add_to } => {
+        Cmd::ModelDetect {
+            video,
+            model,
+            start,
+            end,
+        } => {
+            ctx.init_ort()?;
+            let found = rwdmdl::detect(
+                &ctx.ffmpeg()?,
+                &video,
+                rwdmdl::Model::load(&model)?,
+                start,
+                end,
+            )?;
+            let v: Vec<_> = found
+                .iter()
+                .map(|(n, t)| serde_json::json!({"name": n, "time_sec": t}))
+                .collect();
+            println!("{}", serde_json::to_string(&v)?);
+        }
+        Cmd::AddGame {
+            title,
+            steam,
+            video,
+            game_files,
+            rate,
+            scan_fps,
+            no_install,
+            powder,
+            offline,
+            dir,
+            overwrite,
+            reuse_scan,
+            add_to,
+            scan_only,
+        } => {
             ctx.init_ort()?;
             let (fps, _) = rate.settings()?;
-            let games_dir = dir.or_else(|| ctx.c.games.first().cloned()).unwrap_or_else(|| paths::exe_dir().join("games"));
+            let games_dir = dir
+                .or_else(|| ctx.c.games.first().cloned())
+                .unwrap_or_else(|| paths::exe_dir().join("games"));
             std::fs::create_dir_all(&games_dir)?;
             if title.trim().is_empty() && steam.is_none() && add_to.is_none() {
                 bail!("give --title \"Game Name\" and/or --steam <store link>");
@@ -694,29 +974,57 @@ fn run() -> Result<()> {
                 overwrite: overwrite || add_to.is_some(),
                 reuse_scan,
                 add_to,
+                scan_only,
             };
             let r = autogame::add_game(&o, None)?;
             println!("\nadded {} ({}) -> {}", r.title, r.id, r.dir);
             println!("events it will detect:");
             for d in &r.decisions {
-                println!("  {:<16} from \"{}\" ({}x)  - {}", d.event, d.word, d.count, d.reason);
+                println!(
+                    "  {:<16} from \"{}\" ({}x)  - {}",
+                    d.event, d.word, d.count, d.reason
+                );
             }
-            println!("test run on your video found {} event(s):", r.test_events.len());
+            println!(
+                "test run on your video found {} event(s):",
+                r.test_events.len()
+            );
             for e in &r.test_events {
                 println!("  {:>10}  {}", e.timestamp, e.display_name);
             }
-            for w in &r.warnings { println!("  note: {w}"); }
-            if let Some(p) = &r.installed_into_powder { println!("installed into Powder at {p} - restart Powder."); }
+            for w in &r.warnings {
+                println!("  note: {w}");
+            }
+            if let Some(p) = &r.installed_into_powder {
+                println!("installed into Powder at {p} - restart Powder.");
+            }
         }
-        Cmd::Discover { video, out, rate, start, end, top } => {
+        Cmd::Discover {
+            video,
+            out,
+            rate,
+            start,
+            end,
+            top,
+        } => {
             ctx.init_ort()?;
             let (mut fps, _) = rate.settings()?;
-            if rate.fps.is_none() { fps.sample = Some(2.0); }
+            if rate.fps.is_none() {
+                fps.sample = Some(2.0);
+            }
             let ff = ctx.ffmpeg()?;
             let info = video::probe(&ff, &video)?;
             let (eff, why) = fps.effective(&info, 2.0);
             eprintln!("[powder-rs] discover {} | {}", video.display(), why);
-            let opt = discover::DiscoverOptions { ffmpeg: ff, ocr_models: paths::ocr_models_dir(ctx.c.ocr_models.as_deref())?, fps: eff, start, end, out_dir: out.clone() };
+            let opt = discover::DiscoverOptions {
+                ffmpeg: ff,
+                ocr_models: paths::ocr_models_dir(ctx.c.ocr_models.as_deref())?,
+                fps: eff,
+                start,
+                end,
+                out_dir: out.clone(),
+                areas: Vec::new(),
+            };
             let prog: discover::SharedProgress = Default::default();
             let p2 = prog.clone();
             let h = std::thread::spawn(move || discover::discover(&video, &opt, Some(p2)));
@@ -725,52 +1033,135 @@ fn run() -> Result<()> {
                 let p = prog.lock().unwrap().clone();
                 eprint!("\r  {} {}/{}   ", p.state, p.done, p.total);
             }
-            let d = h.join().map_err(|_| anyhow::anyhow!("discover thread panicked"))??;
+            let d = h
+                .join()
+                .map_err(|_| anyhow::anyhow!("discover thread panicked"))??;
             eprintln!();
-            println!("{} frames, {} text detections, {} groups (static HUD marked *):", d.frame_times.len(), d.detections.len(), d.groups.len());
+            println!(
+                "{} frames, {} text detections, {} groups (static HUD marked *):",
+                d.frame_times.len(),
+                d.detections.len(),
+                d.groups.len()
+            );
             for g in d.groups.iter().take(top) {
                 println!(
                     "  #{:<3} {:<16} x{:<4} at ({:.2},{:.2})-({:.2},{:.2}){}{}   e.g. \"{}\"",
-                    g.id, g.word, g.count, g.bbox[0], g.bbox[1], g.bbox[2], g.bbox[3],
+                    g.id,
+                    g.word,
+                    g.count,
+                    g.bbox[0],
+                    g.bbox[1],
+                    g.bbox[2],
+                    g.bbox[3],
                     if g.is_static { " *" } else { "" },
-                    g.suggestion.as_ref().map(|s| format!("  -> {s}?")).unwrap_or_default(),
+                    g.suggestion
+                        .as_ref()
+                        .map(|s| format!("  -> {s}?"))
+                        .unwrap_or_default(),
                     g.examples.first().cloned().unwrap_or_default()
                 );
             }
             println!("saved {}", out.join("discovery.json").display());
         }
-        Cmd::AutoBuild { discovery, id, name, rules, dir, overwrite } => {
-            let p = if discovery.is_dir() { discovery.join("discovery.json") } else { discovery };
+        Cmd::AutoBuild {
+            discovery,
+            id,
+            name,
+            rules,
+            dir,
+            overwrite,
+        } => {
+            let p = if discovery.is_dir() {
+                discovery.join("discovery.json")
+            } else {
+                discovery
+            };
             let d = discover::load(&p)?;
             let mut rs = Vec::new();
             if rules.is_empty() {
                 let all = autogame::classify(&d, &std::collections::BTreeMap::new(), 6);
-                let (known, custom): (Vec<_>, Vec<_>) = all.into_iter().partition(|x: &autogame::Decision| !x.reason.starts_with("highlight-like"));
+                let (known, custom): (Vec<_>, Vec<_>) = all
+                    .into_iter()
+                    .partition(|x: &autogame::Decision| !x.reason.starts_with("highlight-like"));
                 for x in &known {
-                    println!("  {:<14} {:<14} {:>4}x  {}", x.event, x.word, x.count, x.reason);
+                    println!(
+                        "  {:<14} {:<14} {:>4}x  {}",
+                        x.event, x.word, x.count, x.reason
+                    );
                 }
-                println!("  suggestions only: {}", custom.iter().map(|x| x.word.clone()).collect::<Vec<_>>().join(", "));
+                println!(
+                    "  suggestions only: {}",
+                    custom
+                        .iter()
+                        .map(|x| x.word.clone())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                );
                 rs = autogame::rules_from(&known, &d);
             }
             for r in rules {
-                let (ev, words) = r.split_once('=').context("rule must be EVENT=WORD[,WORD]")?;
-                let words: Vec<String> = words.split(',').map(|w| w.trim().to_uppercase()).filter(|w| !w.is_empty()).collect();
-                let groups: Vec<usize> = d.groups.iter().filter(|g| !g.is_static && words.iter().any(|w| w.split_whitespace().any(|p| p == g.word))).map(|g| g.id).collect();
+                let (ev, words) = r
+                    .split_once('=')
+                    .context("rule must be EVENT=WORD[,WORD]")?;
+                let words: Vec<String> = words
+                    .split(',')
+                    .map(|w| w.trim().to_uppercase())
+                    .filter(|w| !w.is_empty())
+                    .collect();
+                let groups: Vec<usize> = d
+                    .groups
+                    .iter()
+                    .filter(|g| {
+                        !g.is_static
+                            && words
+                                .iter()
+                                .any(|w| w.split_whitespace().any(|p| p == g.word))
+                    })
+                    .map(|g| g.id)
+                    .collect();
                 if groups.is_empty() {
-                    bail!("no discovered (non-static) text matches {:?} for event {ev}", words);
+                    bail!(
+                        "no discovered (non-static) text matches {:?} for event {ev}",
+                        words
+                    );
                 }
-                rs.push(discover::Rule { event: ev.trim().to_string(), display_name: None, groups, words });
+                rs.push(discover::Rule {
+                    event: ev.trim().to_string(),
+                    display_name: None,
+                    groups,
+                    words,
+                });
             }
-            let dir = dir.or_else(|| ctx.c.games.first().cloned()).unwrap_or_else(|| PathBuf::from("games"));
+            let dir = dir
+                .or_else(|| ctx.c.games.first().cloned())
+                .unwrap_or_else(|| PathBuf::from("games"));
             let g = discover::build_game(&d, &rs, &dir, &id, &name, overwrite)?;
             println!("built {}", g.display());
             let libs = ctx.lua_libs()?;
             let libs: Vec<&Path> = libs.iter().map(|p| p.as_path()).collect();
             let rep = tools::validate(&game::GamePack::load(&g)?, &libs);
-            for e in &rep.errors { println!("  ERROR: {e}"); }
-            for w in &rep.warnings { println!("  warning: {w}"); }
+            for e in &rep.errors {
+                println!("  ERROR: {e}");
+            }
+            for w in &rep.warnings {
+                println!("  warning: {w}");
+            }
         }
-        Cmd::Montage { videos, out, target, music, music_start, vertical, height, fps, no_effects, outro, effects_file, seed, dry_run } => {
+        Cmd::Montage {
+            videos,
+            out,
+            target,
+            music,
+            music_start,
+            vertical,
+            height,
+            fps,
+            no_effects,
+            outro,
+            effects_file,
+            seed,
+            dry_run,
+        } => {
             let ff = ctx.ffmpeg()?;
             let st = settings::Settings::load();
             let mut sources = Vec::new();
@@ -778,7 +1169,10 @@ fn run() -> Result<()> {
                 let mut sc = library::load_sidecar(v);
                 // fall back to a results file written by `analyze`
                 if sc.events.is_empty() {
-                    let dir = v.parent().filter(|p| !p.as_os_str().is_empty()).unwrap_or(Path::new("."));
+                    let dir = v
+                        .parent()
+                        .filter(|p| !p.as_os_str().is_empty())
+                        .unwrap_or(Path::new("."));
                     let stem = v.file_name().unwrap().to_string_lossy().to_string();
                     if let Ok(rd) = std::fs::read_dir(dir) {
                         for e in rd.flatten() {
@@ -787,30 +1181,80 @@ fn run() -> Result<()> {
                                 let j = library::read_json(&e.path())?;
                                 sc.game = j["game"].as_str().map(String::from);
                                 for ev in j["events"].as_array().cloned().unwrap_or_default() {
-                                    sc.events.push(library::LibEvent { name: ev["name"].as_str().unwrap_or("").into(), display_name: ev["display_name"].as_str().unwrap_or("").into(), time_sec: ev["time_sec"].as_f64().unwrap_or(0.0), source: "video".into() });
+                                    sc.events.push(library::LibEvent {
+                                        name: ev["name"].as_str().unwrap_or("").into(),
+                                        display_name: ev["display_name"]
+                                            .as_str()
+                                            .unwrap_or("")
+                                            .into(),
+                                        time_sec: ev["time_sec"].as_f64().unwrap_or(0.0),
+                                        source: "video".into(),
+                                    });
                                 }
                             }
                         }
                     }
                 }
                 for b in &sc.bookmarks {
-                    sc.events.push(library::LibEvent { name: "bookmark".into(), display_name: "Bookmark".into(), time_sec: *b, source: "bookmark".into() });
+                    sc.events.push(library::LibEvent {
+                        name: "bookmark".into(),
+                        display_name: "Bookmark".into(),
+                        time_sec: *b,
+                        source: "bookmark".into(),
+                    });
                 }
-                let events_json = sc.game.as_ref().and_then(|g| game::find_game(g, &ctx.game_dirs()).ok()).map(|g| g.events);
+                let events_json = sc
+                    .game
+                    .as_ref()
+                    .and_then(|g| game::find_game(g, &ctx.game_dirs()).ok())
+                    .map(|g| g.events);
                 let (duration, has_audio, w, h) = montage::probe_source(&ff, v)?;
-                println!("{}: {} event(s){}", v.display(), sc.events.len(), sc.game.as_ref().map(|g| format!(" [{g}]")).unwrap_or_default());
-                sources.push(montage::Source { video: v.clone(), events: sc.events, events_json, duration, has_audio, width: w, height: h });
+                println!(
+                    "{}: {} event(s){}",
+                    v.display(),
+                    sc.events.len(),
+                    sc.game
+                        .as_ref()
+                        .map(|g| format!(" [{g}]"))
+                        .unwrap_or_default()
+                );
+                sources.push(montage::Source {
+                    video: v.clone(),
+                    events: sc.events,
+                    events_json,
+                    duration,
+                    has_audio,
+                    width: w,
+                    height: h,
+                });
             }
-            let tracks = music::list(&ff, st.powder_dir.as_deref().or(patcher::powder_dir(None).ok().as_deref()), &st.music_folders);
+            let tracks = music::list(
+                &ff,
+                st.powder_dir
+                    .as_deref()
+                    .or(patcher::powder_dir(None).ok().as_deref()),
+                &st.music_folders,
+            );
             let music_path = match music.as_deref() {
                 Some(m) if m.starts_with("powder:") => {
                     let i: usize = m[7..].parse().context("powder:N")?;
-                    Some(tracks.iter().filter(|t| t.source == "powder").nth(i).context("no such Powder track (see `powder-rs music`)")?.path.clone())
+                    Some(
+                        tracks
+                            .iter()
+                            .filter(|t| t.source == "powder")
+                            .nth(i)
+                            .context("no such Powder track (see `powder-rs music`)")?
+                            .path
+                            .clone(),
+                    )
                 }
                 Some(m) => Some(PathBuf::from(m)),
                 None => None,
             };
-            let music_len = music_path.as_ref().and_then(|m| montage::probe_source(&ff, m).ok()).map(|x| x.0 - music_start);
+            let music_len = music_path
+                .as_ref()
+                .and_then(|m| montage::probe_source(&ff, m).ok())
+                .map(|x| x.0 - music_start);
             let opt = montage::MontageOptions {
                 target_sec: target.or(music_len).unwrap_or(60.0),
                 music: music_path,
@@ -827,18 +1271,48 @@ fn run() -> Result<()> {
             let plan = montage::plan(&sources, &opt, &bundles);
             println!("plan ({:.0}s target):", opt.target_sec);
             for c in &plan {
-                println!("  {} {:>9}-{:<9} {:<14} score {:>4.0} {}", c.source, analyze::fmt_ts(c.start), analyze::fmt_ts(c.end), c.event_name, c.score, c.effect.clone().unwrap_or_default());
+                println!(
+                    "  {} {:>9}-{:<9} {:<14} score {:>4.0} {}",
+                    c.source,
+                    analyze::fmt_ts(c.start),
+                    analyze::fmt_ts(c.end),
+                    c.event_name,
+                    c.score,
+                    c.effect.clone().unwrap_or_default()
+                );
             }
             if !dry_run {
-                let r = montage::make(&ff, &sources, &opt, &bundles, &out, &|p, m| eprint!("\r  {:>3.0}% {m}                    ", p * 100.0))?;
+                let r = montage::make(&ff, &sources, &opt, &bundles, &out, &|p, m| {
+                    eprint!("\r  {:>3.0}% {m}                    ", p * 100.0)
+                })?;
                 eprintln!();
-                println!("montage: {} ({:.1}s, encoder {})", out.display(), r["duration"].as_f64().unwrap_or(0.0), r["encoder"].as_str().unwrap_or(""));
+                println!(
+                    "montage: {} ({:.1}s, encoder {})",
+                    out.display(),
+                    r["duration"].as_f64().unwrap_or(0.0),
+                    r["encoder"].as_str().unwrap_or("")
+                );
             }
         }
-        Cmd::Clip { video, start, end, out, vertical } => {
+        Cmd::Clip {
+            video,
+            start,
+            end,
+            out,
+            vertical,
+        } => {
             let ff = ctx.ffmpeg()?;
             let st = settings::Settings::load();
-            montage::export_clip(&ff, &video, start, end, &out, &st.recorder.encoder, "high", vertical.then_some([0.34197530864, 0.0, 0.31604938271, 1.0]))?;
+            montage::export_clip(
+                &ff,
+                &video,
+                start,
+                end,
+                &out,
+                &st.recorder.encoder,
+                "high",
+                vertical.then_some([0.34197530864, 0.0, 0.31604938271, 1.0]),
+            )?;
             println!("clip: {}", out.display());
         }
         Cmd::AudioPeaks { video, sensitivity } => {
@@ -847,15 +1321,33 @@ fn run() -> Result<()> {
             let items: Vec<(f64, String)> = p.iter().map(|t| (*t, String::new())).collect();
             library::set_events(&video, "audio", "loudness-peak", "Loudness spike", &items)?;
             println!("{} loudness spike(s):", p.len());
-            for t in p { println!("  {}", analyze::fmt_ts(t)); }
+            for t in p {
+                println!("  {}", analyze::fmt_ts(t));
+            }
         }
-        Cmd::Transcribe { video, language, keywords, model } => {
+        Cmd::Transcribe {
+            video,
+            language,
+            keywords,
+            model,
+        } => {
             let st = settings::Settings::load();
             let pd = st.powder_dir.clone().or(patcher::powder_dir(None).ok());
-            let model = model.or_else(|| audio::find_model(pd.as_deref())).context("no whisper model found (pass --model)")?;
-            let lines = audio::transcribe(&ctx.ffmpeg()?, &video, &model, &language, &|p| eprint!("\r  {:.0}%   ", p * 100.0))?;
+            let model = model
+                .or_else(|| audio::find_model(pd.as_deref()))
+                .context("no whisper model found (pass --model)")?;
+            let lines = audio::transcribe(&ctx.ffmpeg()?, &video, &model, &language, &|p| {
+                eprint!("\r  {:.0}%   ", p * 100.0)
+            })?;
             eprintln!();
-            for l in &lines { println!("[{} -> {}] {}", analyze::fmt_ts(l.from), analyze::fmt_ts(l.to), l.text); }
+            for l in &lines {
+                println!(
+                    "[{} -> {}] {}",
+                    analyze::fmt_ts(l.from),
+                    analyze::fmt_ts(l.to),
+                    l.text
+                );
+            }
             let mut sc = library::load_sidecar(&video);
             sc.transcript = lines.clone();
             library::save_sidecar(&video, &sc)?;
@@ -870,8 +1362,16 @@ fn run() -> Result<()> {
             let st = settings::Settings::load();
             let pd = st.powder_dir.clone().or(patcher::powder_dir(None).ok());
             let yt = download::ytdlp(pd.as_deref())?;
-            let folder = out.unwrap_or_else(|| st.library_folders.first().cloned().unwrap_or(st.recordings_folder.clone()).join("Downloads"));
-            let (v, chat) = download::download(&yt, &ctx.ffmpeg()?, &url, &folder, &|p, _| eprint!("\r  {:.0}%   ", p * 100.0))?;
+            let folder = out.unwrap_or_else(|| {
+                st.library_folders
+                    .first()
+                    .cloned()
+                    .unwrap_or(st.recordings_folder.clone())
+                    .join("Downloads")
+            });
+            let (v, chat) = download::download(&yt, &ctx.ffmpeg()?, &url, &folder, &|p, _| {
+                eprint!("\r  {:.0}%   ", p * 100.0)
+            })?;
             eprintln!();
             println!("saved {}", v.display());
             if let Some(c) = chat {
@@ -884,31 +1384,76 @@ fn run() -> Result<()> {
         Cmd::Music => {
             let ff = ctx.ffmpeg()?;
             let st = settings::Settings::load();
-            let tracks = music::list(&ff, st.powder_dir.as_deref().or(patcher::powder_dir(None).ok().as_deref()), &st.music_folders);
+            let tracks = music::list(
+                &ff,
+                st.powder_dir
+                    .as_deref()
+                    .or(patcher::powder_dir(None).ok().as_deref()),
+                &st.music_folders,
+            );
             let mut pi = 0;
             for t in &tracks {
-                let id = if t.source == "powder" { pi += 1; format!("powder:{}", pi - 1) } else { t.path.display().to_string() };
-                println!("  {:<30} {:<24} {:<20} {:>5.0}s", id, t.title, t.artist, t.duration);
+                let id = if t.source == "powder" {
+                    pi += 1;
+                    format!("powder:{}", pi - 1)
+                } else {
+                    t.path.display().to_string()
+                };
+                println!(
+                    "  {:<30} {:<24} {:<20} {:>5.0}s",
+                    id, t.title, t.artist, t.duration
+                );
             }
-            if tracks.is_empty() { println!("no music found (set music folders in settings, or point POWDER_DIR at your Powder install)"); }
+            if tracks.is_empty() {
+                println!("no music found (set music folders in settings, or point POWDER_DIR at your Powder install)");
+            }
         }
-        Cmd::Replay { game, results, out, report, json } => {
+        Cmd::Replay {
+            game,
+            results,
+            out,
+            report,
+            json,
+        } => {
             let g = game::find_game(&game, &ctx.game_dirs())?;
-            let v: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&results)?).context("reading results json")?;
+            let v: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&results)?)
+                .context("reading results json")?;
             let a = analyze::replay(&g, &v, &ctx.lua_libs()?)?;
             if json {
-                let ev: Vec<_> = a.events.iter().map(|e| serde_json::json!({"name": e.name, "time_sec": e.time_sec})).collect();
+                let ev: Vec<_> = a
+                    .events
+                    .iter()
+                    .map(|e| serde_json::json!({"name": e.name, "time_sec": e.time_sec}))
+                    .collect();
                 println!("{}", serde_json::to_string(&ev)?);
             } else {
                 println!("{} event(s):", a.events.len());
                 for e in &a.events {
-                    println!("  {:>10}  {}{}", e.timestamp, e.display_name, if e.known { "" } else { "  (not in events.json!)" });
+                    println!(
+                        "  {:>10}  {}{}",
+                        e.timestamp,
+                        e.display_name,
+                        if e.known {
+                            ""
+                        } else {
+                            "  (not in events.json!)"
+                        }
+                    );
                 }
             }
-            if let Some(o) = out { std::fs::write(&o, serde_json::to_string_pretty(&a)?)?; }
-            if let Some(r) = report { std::fs::write(&r, report::html(&a))?; }
+            if let Some(o) = out {
+                std::fs::write(&o, serde_json::to_string_pretty(&a)?)?;
+            }
+            if let Some(r) = report {
+                std::fs::write(&r, report::html(&a))?;
+            }
         }
-        Cmd::Calibrate { game, input, time, out } => {
+        Cmd::Calibrate {
+            game,
+            input,
+            time,
+            out,
+        } => {
             let g = game::find_game(&game, &ctx.game_dirs())?;
             let libs = ctx.lua_libs()?;
             let libs: Vec<&Path> = libs.iter().map(|p| p.as_path()).collect();
@@ -919,28 +1464,70 @@ fn run() -> Result<()> {
                 eprintln!("note: OCR unavailable, only saving crop images");
             }
             let res = tools::calibrate(&script, o.as_mut(), &frame, &out)?;
-            println!("frame {}x{}  ->  {}", frame.width(), frame.height(), out.display());
+            println!(
+                "frame {}x{}  ->  {}",
+                frame.width(),
+                frame.height(),
+                out.display()
+            );
             for (n, t) in res {
-                println!("  {n:<20} {}", if t.is_empty() { "(no text)".into() } else { format!("\"{t}\"") });
+                println!(
+                    "  {n:<20} {}",
+                    if t.is_empty() {
+                        "(no text)".into()
+                    } else {
+                        format!("\"{t}\"")
+                    }
+                );
             }
-            println!("open {} to see every crop drawn on the frame", out.join("_overview.png").display());
+            println!(
+                "open {} to see every crop drawn on the frame",
+                out.join("_overview.png").display()
+            );
         }
-        Cmd::OcrTest { input, crop, time, dilate, min_area, margin, chars, save } => {
+        Cmd::OcrTest {
+            input,
+            crop,
+            time,
+            dilate,
+            min_area,
+            margin,
+            chars,
+            save,
+        } => {
             let frame = video::load_image_or_frame(ctx.c.ffmpeg.as_ref(), &input, time)?;
-            let spec = tools::adhoc_crop("test", tools::parse_crop(&crop)?, dilate, min_area, margin, &chars);
+            let spec = tools::adhoc_crop(
+                "test",
+                tools::parse_crop(&crop)?,
+                dilate,
+                min_area,
+                margin,
+                &chars,
+            );
             let mut o = ctx.ocr()?;
             let r = o.run_crop(&frame, &spec)?;
             println!("text: \"{}\"", r.text);
             for b in &r.boxes {
-                println!("  box ({},{})-({},{}) \"{}\"", b.x0, b.y0, b.x1, b.y1, b.text);
+                println!(
+                    "  box ({},{})-({},{}) \"{}\"",
+                    b.x0, b.y0, b.x1, b.y1, b.text
+                );
             }
             if let Some(s) = save {
                 ocr::debug_image(&frame, &spec, &r).save(&s)?;
                 println!("saved {}", s.display());
             }
         }
-        Cmd::NewGame { id, name, steam_id, twitch_id, dir } => {
-            let dir = dir.or_else(|| ctx.c.games.first().cloned()).unwrap_or_else(|| PathBuf::from("games"));
+        Cmd::NewGame {
+            id,
+            name,
+            steam_id,
+            twitch_id,
+            dir,
+        } => {
+            let dir = dir
+                .or_else(|| ctx.c.games.first().cloned())
+                .unwrap_or_else(|| PathBuf::from("games"));
             let g = tools::new_game(&dir, &id, &name, steam_id, twitch_id)?;
             println!("created {}", g.display());
             println!("next: 1) take a screenshot showing a kill/victory  2) powder-rs studio {id}  (or edit cropCoords by hand)");
@@ -951,9 +1538,15 @@ fn run() -> Result<()> {
             let libs = ctx.lua_libs()?;
             let libs: Vec<&Path> = libs.iter().map(|p| p.as_path()).collect();
             let r = tools::validate(&g, &libs);
-            for i in &r.info { println!("  info:    {i}"); }
-            for w in &r.warnings { println!("  warning: {w}"); }
-            for e in &r.errors { println!("  ERROR:   {e}"); }
+            for i in &r.info {
+                println!("  info:    {i}");
+            }
+            for w in &r.warnings {
+                println!("  warning: {w}");
+            }
+            for e in &r.errors {
+                println!("  ERROR:   {e}");
+            }
             if r.errors.is_empty() {
                 println!("{}: OK ({} warning(s))", g.id, r.warnings.len());
             } else {
@@ -967,11 +1560,32 @@ fn run() -> Result<()> {
                 println!("no games found in {:?}", dirs);
             }
             for g in games {
-                let model = if g.dir.join("model.json").exists() { "model+ocr" } else if g.dir.join("model.pwdmdl").exists() { "ocr (encrypted model ignored)" } else { "ocr" };
-                println!("  {:<10} {:<28} {:>2} events  {}  [{}]", g.id, g.meta.name, g.event_names().len(), model, g.dir.display());
+                let model = if g.dir.join("model.json").exists() {
+                    "model+ocr"
+                } else if g.dir.join("model.pwdmdl").exists() {
+                    "ocr (encrypted model ignored)"
+                } else {
+                    "ocr"
+                };
+                println!(
+                    "  {:<10} {:<28} {:>2} events  {}  [{}]",
+                    g.id,
+                    g.meta.name,
+                    g.event_names().len(),
+                    model,
+                    g.dir.display()
+                );
             }
         }
-        Cmd::ExtractFrames { video, out, fps, crop, size, start, end } => {
+        Cmd::ExtractFrames {
+            video,
+            out,
+            fps,
+            crop,
+            size,
+            start,
+            end,
+        } => {
             let crop = crop.map(|c| tools::parse_crop(&c)).transpose()?;
             let size = size
                 .map(|s| -> Result<(u32, u32)> {
@@ -979,15 +1593,30 @@ fn run() -> Result<()> {
                     Ok((a.parse()?, b.parse()?))
                 })
                 .transpose()?;
-            let n = tools::extract_frames(&ctx.ffmpeg()?, &video, &out, fps, crop, size, start, end)?;
+            let n =
+                tools::extract_frames(&ctx.ffmpeg()?, &video, &out, fps, crop, size, start, end)?;
             println!("saved {n} frames to {}", out.display());
         }
         Cmd::Studio { port, game } => {
             let dirs = ctx.game_dirs();
-            let ocr = ctx.ocr().map_err(|e| eprintln!("note: OCR unavailable in studio: {e:#}")).ok();
-            let games_dir = ctx.c.games.first().cloned().unwrap_or_else(|| paths::exe_dir().join("games"));
+            let ocr = ctx
+                .ocr()
+                .map_err(|e| eprintln!("note: OCR unavailable in studio: {e:#}"))
+                .ok();
+            let games_dir = ctx
+                .c
+                .games
+                .first()
+                .cloned()
+                .unwrap_or_else(|| paths::exe_dir().join("games"));
             std::fs::create_dir_all(&games_dir)?;
-            let cfg = studio::StudioConfig { dirs, libs: ctx.lua_libs()?, ffmpeg: ctx.c.ffmpeg.clone(), ocr_models: ctx.c.ocr_models.clone(), games_dir };
+            let cfg = studio::StudioConfig {
+                dirs,
+                libs: ctx.lua_libs()?,
+                ffmpeg: ctx.c.ffmpeg.clone(),
+                ocr_models: ctx.c.ocr_models.clone(),
+                games_dir,
+            };
             studio::serve(port, cfg, ocr, game)?;
         }
         Cmd::Powder { action } => patcher::run(action, &ctx.game_dirs(), &ctx.lua_libs()?)?,

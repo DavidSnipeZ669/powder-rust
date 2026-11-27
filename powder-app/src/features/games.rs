@@ -130,6 +130,23 @@ pub fn load(ctx: &Ctx) -> Result<()> {
     Ok(())
 }
 
+/// Rewind's own small preferences (home()\\prefs.json).
+pub fn prefs() -> Value {
+    std::fs::read(crate::setup::home().join("prefs.json")).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or(json!({}))
+}
+
+pub fn set_pref(key: &str, v: Value) -> Value {
+    let mut p = prefs();
+    if !p.is_object() {
+        p = json!({});
+    }
+    p[key] = v;
+    let _ = std::fs::write(crate::setup::home().join("prefs.json"), serde_json::to_vec_pretty(&p).unwrap_or_default());
+    let ctx = super::ctx();
+    refresh(&ctx.host, ctx);
+    p
+}
+
 /// supportedGames = whitelist.json order, games without db entry dropped, Just Chatting first.
 pub fn supported(ctx: &Ctx) -> Vec<Value> {
     let mut ids: Vec<String> = ai_configs(ctx)
@@ -143,11 +160,26 @@ pub fn supported(ctx: &Ctx) -> Vec<Value> {
             }
         }
     }
+    let custom: Vec<String> = custom_games().iter().filter_map(|c| c["powderGameId"].as_str().map(String::from)).collect();
     let mut out: Vec<Value> = ids
         .iter()
+        .filter(|id| !custom.contains(id))
         .filter_map(|id| find(id))
         .map(|g| json!({"name": g["name"], "powderGameId": g["powderGameId"], "bannerUrl": g["bannerUrl"], "iconUrl": g["iconUrl"], "coverUrl": g["coverUrl"]}))
         .collect();
+    // games added with Rewind: in A-Z order among Powder's games (default), or all at the bottom
+    let at_bottom = prefs()["customGamesAtBottom"] == true;
+    for id in ids.iter().filter(|id| custom.contains(id)) {
+        let Some(g) = find(id) else { continue };
+        let e = json!({"name": g["name"], "powderGameId": g["powderGameId"], "bannerUrl": g["bannerUrl"], "iconUrl": g["iconUrl"], "coverUrl": g["coverUrl"]});
+        let name = e["name"].as_str().unwrap_or("").to_lowercase();
+        let at = if at_bottom {
+            out.len()
+        } else {
+            out.iter().position(|o| !custom.iter().any(|c| o["powderGameId"] == c.as_str()) && o["name"].as_str().unwrap_or("").to_lowercase() > name).unwrap_or(out.len())
+        };
+        out.insert(at, e);
+    }
     if let Some(jc) = find("JSTCHT") {
         out.insert(0, jc);
     }

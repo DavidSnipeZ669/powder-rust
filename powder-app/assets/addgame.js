@@ -7,10 +7,17 @@
   const get = (p) => fetch(p, { headers: H }).then((r) => r.json())
 
   const css = `
-  .pwrs-overlay{position:fixed;inset:0;background:rgba(10,10,14,.55);display:flex;align-items:center;justify-content:center;z-index:99999;font-family:inherit}
-  .pwrs-modal{background:#f4f4f4;color:#111;border-radius:24px;width:560px;max-width:92vw;padding:28px 30px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+  .pwrs-overlay{position:fixed;inset:0;background:rgba(10,10,14,.55);display:flex;align-items:flex-start;justify-content:center;z-index:99999;font-family:inherit;overflow-y:auto;padding:16px;box-sizing:border-box}
+  .pwrs-modal{margin:auto;flex-shrink:0;background:#f4f4f4;color:#111;border-radius:24px;width:560px;max-width:92vw;padding:28px 30px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
   .pwrs-modal h2{margin:0 0 6px;font-size:24px;font-weight:700}
   .pwrs-modal p.sub{margin:0 0 18px;color:#555;font-size:14px;line-height:1.4}
+  /* Powder's own pop-ups (Sources' analyse dialog and others): scroll inside a small window
+     instead of being cut off - centred while they fit, scrollable from the top when they don't */
+  [class*="modal-Backdrop-style__backdrop"]{align-items:flex-start!important}
+  [class*="modal-Backdrop-style__backdrop"]>*{margin:auto!important;flex-shrink:0!important;max-height:none!important}
+  /* Sources' event filter list: scroll inside it instead of running off the window */
+  [class*="CustomFilter-style__dropdown"]{max-height:min(60vh,calc(100vh - 300px))!important;overflow-y:auto!important}
+  [class*="SelectInput-style__menu"]{max-height:60vh!important;overflow-y:auto!important}
   .pwrs-field{background:#fff;border-radius:18px;padding:14px 16px;margin-bottom:12px}
   .pwrs-field label{display:block;font-size:13px;font-weight:600;margin-bottom:8px}
   .pwrs-field input{width:100%;box-sizing:border-box;border:1px solid #ddd;border-radius:12px;padding:11px 12px;font:inherit;font-size:14px;background:#fafafa}
@@ -26,12 +33,21 @@
   .pwrs-nav{cursor:pointer}
   .pwrs-len{display:inline-flex;align-items:center;gap:4px;margin-left:10px;font:inherit;font-size:13px;opacity:.9}
   .pwrs-len input{width:64px;padding:3px 6px;border-radius:6px;border:1px solid #8886;background:transparent;color:inherit;font:inherit}
-  .pwrs-modal.wide{width:820px}
-  .pwrs-ev{display:grid;grid-template-columns:170px 1fr 180px 34px;gap:8px;align-items:center;margin-bottom:8px}
+  .pwrs-modal.wide{width:1080px;max-width:96vw}
+  .pwrs-ev{display:grid;grid-template-columns:150px 1fr 160px 78px 78px 86px 34px;gap:8px;align-items:center;margin-bottom:8px}
   .pwrs-ev input,.pwrs-ev select{width:100%;box-sizing:border-box;border:1px solid #ddd;border-radius:10px;padding:8px 10px;font:inherit;font-size:13px;background:#fafafa;color:inherit}
   .pwrs-ev .x{border:0;background:transparent;font-size:18px;cursor:pointer;color:#c33;border-radius:8px;height:34px}
   .pwrs-ev .x:hover{background:#c331}
-  .pwrs-evhead{display:grid;grid-template-columns:170px 1fr 180px 34px;gap:8px;font-size:12px;font-weight:700;opacity:.7;margin-bottom:6px}
+  .pwrs-evhead{display:grid;grid-template-columns:150px 1fr 160px 78px 78px 86px 34px;gap:8px;font-size:12px;font-weight:700;opacity:.7;margin-bottom:6px}
+  .pwrs-ev .imp{display:flex;align-items:center;gap:4px}.pwrs-ev .imp span{font-size:11px;opacity:.65;min-width:30px}
+  .pwrs-tpl{position:fixed;inset:0;z-index:100000;background:rgba(10,10,14,.6);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:16px;box-sizing:border-box}
+  .pwrs-tpl .box{margin:auto;background:#2a2a2a;color:#f2f2f2;border-radius:20px;width:860px;max-width:94vw;padding:24px 26px}
+  .pwrs-tpl input{width:100%;box-sizing:border-box;border:1px solid #3a3a3a;border-radius:12px;padding:10px 12px;font:inherit;background:#151515;color:inherit;margin:10px 0 14px}
+  .pwrs-tpl .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;max-height:60vh;overflow:auto}
+  .pwrs-tpl .g{cursor:pointer;border-radius:12px;overflow:hidden;background:#1f1f1f;border:2px solid transparent}
+  .pwrs-tpl .g:hover{border-color:#8b5cf6}
+  .pwrs-tpl .g img{width:100%;aspect-ratio:3/4;object-fit:cover;display:block;background:#111}
+  .pwrs-tpl .g div{font-size:12px;padding:6px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .pwrs-evlist{max-height:46vh;overflow:auto;padding-right:4px}
   .pwrs-chip{display:inline-block;border-radius:999px;padding:5px 11px;margin:0 6px 6px 0;font-size:12px;cursor:pointer;background:#e3e3e3}
   .pwrs-chip:hover{background:#d4d4d4}
@@ -61,12 +77,18 @@
       <div class="pwrs-field"><label>What to do</label><select id="pwrs-mode" style="width:100%;box-sizing:border-box;border:1px solid #8884;border-radius:12px;padding:11px 12px;font:inherit;font-size:14px;background:transparent;color:inherit"><option value="">${model ? 'New game (adds the game, then makes its model)' : 'Add a new game'}</option></select>
         <p class="sub" id="pwrs-modehint" style="margin:8px 0 0;display:none">The new video is scanned and combined with this game's earlier videos, so events your first video didn't show get detected too. Your own event edits are kept. The video also counts as analysed.</p></div>
       <div class="pwrs-field" id="pwrs-titlebox"><label>Game title or Steam link</label><input id="pwrs-title" placeholder="e.g. Delta Force  or  https://store.steampowered.com/app/2507950/Delta_Force/"></div>
-      <div class="pwrs-field"><label>Gameplay video</label><div class="pwrs-row"><div class="pwrs-file" id="pwrs-file">No video selected</div><button class="pwrs-btn" id="pwrs-pick">Choose video</button></div>
-        <input id="pwrs-url" placeholder="...or paste a YouTube link (it's downloaded first)" style="margin-top:8px"></div>
+      <div class="pwrs-field" id="pwrs-tplbox"><label>Events template (optional)</label><div class="pwrs-row"><div class="pwrs-file" id="pwrs-tplname">None: find the events from the video</div><button class="pwrs-btn" id="pwrs-tplpick">Choose game…</button></div>
+        <p class="sub" style="margin:6px 0 0;font-size:12px">For another game in a series (e.g. a new Call of Duty): start from a game you already have. Its events, words, screen areas, clip times and importance are copied (for Powder games that use their own AI model instead of reading text, only the event names and settings).</p></div>
+      <div class="pwrs-field"><label>Gameplay videos</label><div class="pwrs-row"><div class="pwrs-file" id="pwrs-file">No video selected</div><button class="pwrs-btn" id="pwrs-pick">Choose videos</button></div>
+        <textarea id="pwrs-url" rows="2" placeholder="...and/or paste YouTube links, one per line (they're downloaded first)" style="margin-top:8px;width:100%;box-sizing:border-box;border:1px solid #8884;border-radius:12px;padding:10px 12px;font:inherit;font-size:14px;background:transparent;color:inherit;resize:vertical"></textarea>
+        <p class="sub" style="margin:6px 0 0;font-size:12px">Several at once is fine. YouTube links download while the others are being worked on.</p>
+        <label style="display:block;margin-top:8px;font-size:13px">Several videos: <select id="pwrs-par" style="border:1px solid #8884;border-radius:8px;padding:4px 6px;font:inherit;font-size:13px;background:transparent;color:inherit">
+          <option value="">one at a time (lighter on your PC)</option><option value="1">scan two at once, then combine and train one by one (faster, heavier)</option></select></label></div>
       <div class="pwrs-status" id="pwrs-status"></div>
       <div class="pwrs-log" id="pwrs-log"></div>
       <div class="pwrs-after" id="pwrs-after" style="display:none;margin-top:12px;gap:10px;flex-wrap:wrap"></div>
       <a class="pwrs-link" id="pwrs-editlink" style="margin-top:12px">Edit the events of a game you already added…</a>
+      <label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13px;opacity:.85;cursor:pointer"><input type="checkbox" id="pwrs-bottom" style="width:auto;margin:0"> Put games I add at the bottom of the game list (instead of A–Z among the others)</label>
       ${model ? '<a class="pwrs-link" id="pwrs-recheck" style="margin-top:12px;display:none">Re-check this game\'s pictures and retrain (no new video)</a><a class="pwrs-link" id="pwrs-restore" style="margin-top:6px;display:none">I sorted the pictures myself: undo the checks and lock my folders</a>' : ''}
       <div class="pwrs-actions"><button class="pwrs-btn" id="pwrs-close">Close</button><button class="pwrs-btn primary" id="pwrs-apply">Apply</button></div>
     </div>`
@@ -74,12 +96,17 @@
     const ref = document.querySelector('.pwrs-nav') || document.querySelector('button')
     if (ref) o.style.fontFamily = getComputedStyle(ref).fontFamily
     document.body.appendChild(o)
-    let video = ''
+    let files = []
     const $ = (id) => o.querySelector('#' + id)
     get('/__pw/x/edit-list').then((games) => {
-      for (const g of games) { const op = document.createElement('option'); op.value = g.id; op.textContent = (model ? 'Train the "' + g.name + '" model with another video' : 'Improve "' + g.name + '" with another video'); $('pwrs-mode').appendChild(op) }
+      for (const g of games) { const op = document.createElement('option'); op.value = g.id; op.textContent = (model ? 'Train the "' + g.name + '" model with more videos' : 'Improve "' + g.name + '" with more videos'); $('pwrs-mode').appendChild(op) }
     })
-    $('pwrs-mode').onchange = () => { const add = !!$('pwrs-mode').value; $('pwrs-titlebox').style.display = add ? 'none' : ''; $('pwrs-modehint').style.display = add ? '' : 'none'; if ($('pwrs-recheck')) $('pwrs-recheck').style.display = add ? '' : 'none'; if ($('pwrs-restore')) $('pwrs-restore').style.display = add ? '' : 'none' }
+    let template = ''
+    $('pwrs-tplpick').onclick = async () => {
+      const g = await pickGame('Use events from…')
+      if (g) { template = g.id; $('pwrs-tplname').textContent = g.name } else { template = ''; $('pwrs-tplname').textContent = 'None: find the events from the video' }
+    }
+    $('pwrs-mode').onchange = () => { const add = !!$('pwrs-mode').value; $('pwrs-titlebox').style.display = add ? 'none' : ''; $('pwrs-tplbox').style.display = add ? 'none' : ''; $('pwrs-modehint').style.display = add ? '' : 'none'; if ($('pwrs-recheck')) $('pwrs-recheck').style.display = add ? '' : 'none'; if ($('pwrs-restore')) $('pwrs-restore').style.display = add ? '' : 'none' }
     if (model) $('pwrs-restore').onclick = async () => {
       const id = $('pwrs-mode').value
       if (!id) return
@@ -105,31 +132,37 @@
       get('/__pw/x/datasets').then((d) => { if (d && d.path) $('pwrs-dspath').textContent = '(' + d.path + ')' })
       $('pwrs-dsopen').onclick = () => post('/__pw/x/datasets-open')
     }
+    get('/__pw/x/prefs').then((p) => { $('pwrs-bottom').checked = !!(p && p.customGamesAtBottom); $('pwrs-par').value = p && p.parallelScans ? '1' : '' })
+    $('pwrs-par').onchange = () => post('/__pw/x/prefs', { key: 'parallelScans', value: $('pwrs-par').value === '1' })
+    $('pwrs-bottom').onchange = () => post('/__pw/x/prefs', { key: 'customGamesAtBottom', value: $('pwrs-bottom').checked })
     $('pwrs-close').onclick = () => o.remove()
     $('pwrs-editlink').onclick = () => { o.remove(); openEditor() }
     o.addEventListener('mousedown', (e) => { if (e.target === o && !$('pwrs-apply').disabled) o.remove() })
     $('pwrs-pick').onclick = async () => {
-      const r = await post('/__pw/x/pick-video')
-      if (r.path) { video = r.path; $('pwrs-file').textContent = r.path }
+      const r = await post('/__pw/x/pick-videos')
+      const add = (r.paths || []).filter((p) => !files.includes(p))
+      files = files.concat(add)
+      $('pwrs-file').textContent = files.length ? (files.length === 1 ? files[0] : files.length + ' videos: ' + files.map((f) => f.split(/[\\/]/).pop()).join(', ')) : 'No video selected'
+      $('pwrs-file').title = files.join('\n')
     }
     $('pwrs-apply').onclick = async () => {
       const title = $('pwrs-title').value.trim()
       const addTo = $('pwrs-mode').value
       if (!title && !addTo) { $('pwrs-status').textContent = 'Enter the game title or its Steam link.'; return }
-      const url = $('pwrs-url').value.trim()
-      if (url) video = url
-      if (!video) { $('pwrs-status').textContent = 'Choose a gameplay video or paste a YouTube link.'; return }
+      const links = $('pwrs-url').value.split(/\s+/).map((x) => x.trim()).filter((x) => /^https?:\/\//.test(x))
+      const videos = files.concat(links)
+      if (!videos.length) { $('pwrs-status').textContent = 'Choose gameplay videos or paste YouTube links.'; return }
       $('pwrs-apply').disabled = true; $('pwrs-pick').disabled = true
       $('pwrs-log').style.display = 'block'
-      $('pwrs-status').textContent = 'Working... this takes a few minutes for a long video.'
-      await post('/__pw/x/addgame', { title, video, addTo, model: !!model })
+      $('pwrs-status').textContent = videos.length > 1 ? `Working on ${videos.length} videos, one after another... this takes a while.` : 'Working... this takes a few minutes for a long video.'
+      await post('/__pw/x/addgame', { title, videos, addTo, model: !!model, template: addTo ? '' : template, parallel: $('pwrs-par').value === '1' })
       const tick = async () => {
         const s = await get('/__pw/x/addgame')
         $('pwrs-log').textContent = s.log.join('\n'); $('pwrs-log').scrollTop = 1e9
         if (s.running) return setTimeout(tick, 800)
         $('pwrs-apply').disabled = false; $('pwrs-pick').disabled = false
-        $('pwrs-status').textContent = s.error ? 'Could not add the game: ' + s.error : `Done${s.gameId ? ' (' + s.gameId + ')' : ''}. The game is now in the supported games list.`
-        showAfter(o, s.gameId, !s.error)
+        $('pwrs-status').textContent = s.error && !s.gameId ? 'Could not add the game: ' + s.error : (s.error ? 'Done, but ' + s.error : `Done${s.gameId ? ' (' + s.gameId + ')' : ''}. The game is now in the supported games list.`)
+        showAfter(o, s.gameId, !!s.gameId)
       }
       tick()
     }
@@ -151,6 +184,31 @@
       o.querySelector('#pwrs-status').textContent = r.ok && r.uploaded ? 'Shared! It is waiting for a community reviewer to approve it (the page that opened shows its progress). Once approved, everyone using Rewind gets it automatically.' : r.ok ? 'Saved ' + r.zip + '. Drag it into the GitHub page that just opened and click Submit (needs a free GitHub account).' : 'Could not share: ' + (r.error || 'unknown error')
     })
     if (ok && id) o.querySelector('#pwrs-status').textContent += ' A video only shows some of a game\'s events: click Review events to remove wrong ones and add missing ones.'
+  }
+
+  // pick a game, the same list Sources shows (Powder's games and games added with Rewind)
+  function pickGame(title) {
+    return new Promise(async (resolve) => {
+      const games = await get('/__pw/x/template-games')
+      const t = document.createElement('div')
+      t.className = 'pwrs-tpl'
+      const ref = document.querySelector('.pwrs-nav') || document.querySelector('button')
+      if (ref) t.style.fontFamily = getComputedStyle(ref).fontFamily
+      t.innerHTML = `<div class="box"><h2 style="margin:0">${title}</h2><input placeholder="Search games" id="q"><div class="grid" id="gl"></div>
+        <div class="pwrs-actions"><button class="pwrs-btn" id="c">Cancel</button></div></div>`
+      document.body.appendChild(t)
+      const done = (v) => { t.remove(); resolve(v) }
+      const draw = () => {
+        const q = t.querySelector('#q').value.toLowerCase()
+        t.querySelector('#gl').innerHTML = games.filter((g) => (g.name || '').toLowerCase().includes(q)).map((g) =>
+          `<div class="g" data-id="${esc(g.powderGameId)}" data-name="${esc(g.name)}"><img src="${esc(g.coverUrl || g.iconUrl || g.bannerUrl || '')}" onerror="this.style.visibility='hidden'"><div>${esc(g.name)}</div></div>`).join('')
+        t.querySelectorAll('.g').forEach((c) => (c.onclick = () => done({ id: c.dataset.id, name: c.dataset.name })))
+      }
+      t.querySelector('#q').oninput = draw
+      t.querySelector('#c').onclick = () => done(null)
+      t.addEventListener('mousedown', (e) => { if (e.target === t) done(null) })
+      draw(); t.querySelector('#q').focus()
+    })
   }
 
   const COMMON = ['Kill', 'Headshot', 'Double Kill', 'Triple Kill', 'Quadra Kill', 'Penta Kill', 'Assist', 'Knock Down', 'Revive', 'Death', 'Victory', 'Defeat', 'Level Up', 'Killstreak', 'Objective']
@@ -180,9 +238,9 @@
       <h2>Events: ${esc(g.name)}</h2>
       <p class="sub">Each row is something Rewind watches for on screen. A single video only shows some of a game's events, so: <b>remove</b> rows that aren't real events (player names, menu text), <b>fix</b> the words, and <b>add</b> events the video didn't show. Words are matched loosely, so small reading mistakes still count. Separate several words with commas.</p>
       <datalist id="pwrs-common">${COMMON.map((c) => `<option value="${c}">`).join('')}</datalist>
-      <div class="pwrs-evhead"><div>Event</div><div>Text on screen</div><div>Where on screen</div><div></div></div>
+      <div class="pwrs-evhead"><div>Event</div><div>Text on screen</div><div>Where on screen</div><div title="Clip time before the event, in milliseconds">ms before</div><div title="Clip time after the event, in milliseconds">ms after</div><div title="How important the event is when choosing montage clips; the % is its share of all events">Importance</div><div></div></div>
       <div class="pwrs-evlist" id="rows"></div>
-      <button class="pwrs-btn" id="add" style="margin-top:6px">+ Add event</button>
+      <div style="display:flex;gap:10px;margin-top:6px"><button class="pwrs-btn" id="add">+ Add event</button><button class="pwrs-btn" id="tpl" title="Copy events from another game (e.g. an earlier game in the series)">Use a template…</button></div>
       <div id="sugg" style="margin-top:14px"></div>
       <div class="pwrs-status" id="st"></div>
       <div class="pwrs-actions split"><div class="grp"><button class="pwrs-btn" id="folder" title="events.json and game_postprocess.lua, for hand editing">Open game files</button><button class="pwrs-btn" id="reset" ${g.edited ? '' : 'disabled'}>Undo my edits</button></div>
@@ -190,19 +248,50 @@
     </div>`
     const $ = (s) => o.querySelector('#' + s)
     const areaName = (a) => (a === 'Anywhere' || a === g.fullScreen ? 'Anywhere on screen' : 'Area: ' + a)
-    const areaOpts = (sel) => g.areas.map((a) => `<option value="${esc(a)}" ${a === sel ? 'selected' : ''}>${esc(areaName(a))}</option>`).join('')
+    const areaOpts = (sel) => (g.areas.includes(sel) || !sel ? g.areas : g.areas.concat([sel])).map((a) => `<option value="${esc(a)}" ${a === sel ? 'selected' : ''}>${esc(areaName(a))}${g.areas.includes(a) ? '' : ' (from template)'}</option>`).join('')
+    const keyOf = (d) => d.dataset.event || d.querySelector('.dn').value.trim().toLowerCase()
+    // clip times and importance belong to the event: keep every row of one event the same
+    const sync = (d, cls) => { const v = d.querySelector(cls).value; o.querySelectorAll('.pwrs-ev').forEach((x) => { if (x !== d && keyOf(x) === keyOf(d)) x.querySelector(cls).value = v }); shares() }
+    const shares = () => {
+      const seen = {}; o.querySelectorAll('.pwrs-ev').forEach((x) => { seen[keyOf(x)] = Math.max(0, parseFloat(x.querySelector('.im').value) || 0) })
+      const total = Object.values(seen).reduce((a, b) => a + b, 0) || 1
+      o.querySelectorAll('.pwrs-ev').forEach((x) => { x.querySelector('.imp span').textContent = Math.round((seen[keyOf(x)] || 0) * 100 / total) + '%' })
+    }
     const addRow = (r) => {
       const d = document.createElement('div')
       d.className = 'pwrs-ev'
       d.dataset.event = r.event || ''
-      d.innerHTML = `<input class="dn" list="pwrs-common" placeholder="e.g. Kill" value="${esc(r.displayName || '')}"><input class="w" placeholder="e.g. ELIMINATED, KILLED" value="${esc((r.words || []).join(', '))}"><select class="a">${areaOpts(r.area || g.fullScreen || 'Anywhere')}</select><button class="x" title="Remove">✕</button>`
-      d.querySelector('.x').onclick = () => d.remove()
+      if (r.areaCoords) d.dataset.coords = JSON.stringify(r.areaCoords)
+      const same = [...o.querySelectorAll('.pwrs-ev')].find((x) => r.event && x.dataset.event === r.event)
+      const val = (k, def) => (r[k] != null ? r[k] : same ? same.querySelector(k === 'msBefore' ? '.mb' : k === 'msAfter' ? '.ma' : '.im').value : def)
+      d.innerHTML = `<input class="dn" list="pwrs-common" placeholder="e.g. Kill" value="${esc(r.displayName || '')}"><input class="w" placeholder="e.g. ELIMINATED, KILLED" value="${esc((r.words || []).join(', '))}"><select class="a">${areaOpts(r.area || g.fullScreen || 'Anywhere')}</select>` +
+        `<input class="mb" type="number" min="0" step="100" value="${esc(val('msBefore', 1000))}"><input class="ma" type="number" min="0" step="100" value="${esc(val('msAfter', 1000))}"><div class="imp"><input class="im" type="number" min="0" step="1" value="${esc(val('importance', 10))}"><span></span></div><button class="x" title="Remove">✕</button>`
+      d.querySelector('.x').onclick = () => { d.remove(); shares() }
+      d.querySelector('.mb').oninput = () => sync(d, '.mb'); d.querySelector('.ma').oninput = () => sync(d, '.ma'); d.querySelector('.im').oninput = () => sync(d, '.im')
+      d.querySelector('.a').onchange = () => { delete d.dataset.coords }
       // renaming to a different event starts a new one (keeps the old one's settings out of it)
       d.querySelector('.dn').addEventListener('change', () => { d.dataset.event = '' })
       $('rows').appendChild(d)
+      shares()
       return d
     }
     g.rows.forEach(addRow)
+    $('tpl').onclick = async () => {
+      const pick = await pickGame('Use events from…')
+      if (!pick) return
+      const t = await post('/__pw/x/edit-template', { id: pick.id })
+      if (t.error) { $('st').textContent = 'Could not load the template: ' + t.error; return }
+      // events this game already has keep their rows (and get the template's clip times and
+      // importance); new events are added
+      let added = 0
+      for (const r of t.rows) {
+        const rows = [...o.querySelectorAll('.pwrs-ev')].filter((x) => x.dataset.event === r.event)
+        if (rows.length) { rows.forEach((x) => { x.querySelector('.mb').value = r.msBefore; x.querySelector('.ma').value = r.msAfter; x.querySelector('.im').value = r.importance }); continue }
+        addRow(r); added++
+      }
+      shares()
+      $('st').textContent = `Template from ${t.name}: ${added} event row(s) added, clip times and importance copied. Check them, then Save.` + (t.official && !t.wordsKnown ? ' (Powder detects this game with its own AI model, so the words are just the event names: change them to the text your game shows.)' : t.official ? ' Words and screen areas come from Powder\'s own setup for that game: check the areas match where your game shows them.' : '')
+    }
     $('add').onclick = () => { const d = addRow({}); d.querySelector('.dn').focus(); $('rows').scrollTop = 1e9 }
     if (g.suggestions && g.suggestions.length) {
       $('sugg').innerHTML = `<div style="font-size:13px;font-weight:700;margin-bottom:6px">Other text seen in your video (click to make it an event)</div>` +
@@ -219,7 +308,12 @@
     let armed = ''
     function confirmed(k) { if (armed === k) return true; armed = k; $('st').textContent = 'Click again to undo all your edits.'; return false }
     $('save').onclick = async () => {
-      const rows = [...o.querySelectorAll('.pwrs-ev')].map((d) => ({ event: d.dataset.event, displayName: d.querySelector('.dn').value.trim(), words: d.querySelector('.w').value.split(',').map((w) => w.trim()).filter(Boolean), area: d.querySelector('.a').value }))
+      const rows = [...o.querySelectorAll('.pwrs-ev')].map((d) => {
+        const r = { event: d.dataset.event, displayName: d.querySelector('.dn').value.trim(), words: d.querySelector('.w').value.split(',').map((w) => w.trim()).filter(Boolean), area: d.querySelector('.a').value,
+          msBefore: Math.max(0, parseFloat(d.querySelector('.mb').value) || 0), msAfter: Math.max(0, parseFloat(d.querySelector('.ma').value) || 0), importance: Math.max(0, parseFloat(d.querySelector('.im').value) || 0) }
+        if (d.dataset.coords) r.areaCoords = JSON.parse(d.dataset.coords)
+        return r
+      })
       $('save').disabled = true; $('st').textContent = 'Saving and reinstalling the game…'
       const r = await post('/__pw/x/edit-save', { id, rows })
       $('save').disabled = false

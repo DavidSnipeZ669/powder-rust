@@ -169,7 +169,10 @@ impl Ocr {
 
     fn recognise(&mut self, crop: &RgbImage, boxes: &mut [TextBox], spec: &CropSpec) -> Result<()> {
         let n = boxes.len();
-        let mut inp = Array4::<f32>::zeros((n, 3, REC_H as usize, REC_W as usize));
+        // GPUs (DirectML) are much faster when the input size repeats: a new batch size can mean
+        // re-preparing the model. Round the batch up to 1, 2, 4, 8, 16, ... (extra rows are blank).
+        let nb = n.max(1).next_power_of_two();
+        let mut inp = Array4::<f32>::zeros((nb, 3, REC_H as usize, REC_W as usize));
         for (i, b) in boxes.iter().enumerate() {
             let sub = imageops::crop_imm(crop, b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0).to_image();
             let (bw, bh) = (sub.width() as f32, sub.height() as f32);

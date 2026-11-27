@@ -154,6 +154,11 @@ pub fn init(h: &Host, _ctx: &Arc<Ctx>) {
                         Ok(_) => {}
                         Err(e) => crate::log(&format!("visual model: {e:#}")),
                     }
+                    match super::customgame::add_fight_starts(g, &video, &mut result) {
+                        Ok(n) if n > 0 => crate::log(&format!("fight starts found for {n} event(s)")),
+                        Ok(_) => {}
+                        Err(e) => crate::log(&format!("fight starts: {e:#}")),
+                    }
                 }
                 patch_task(h, &id, json!({"progress": 1, "result": result.clone(), "status": "DONE"}));
                 Ok(result)

@@ -22,6 +22,7 @@ pub fn pick(kind: &str) -> Value {
             "folder" => p(dlg().pick_folder()),
             "video" => p(dlg().add_filter("video", &["mp4", "mkv", "webm"]).pick_file()),
             "videos" => many(dlg().add_filter("mp4 video", &["mp4"]).pick_files()),
+            "videos-any" => many(dlg().add_filter("video", &["mp4", "mkv", "webm"]).pick_files()),
             "music" => p(dlg().add_filter("Audio", &["mp3"]).pick_file()),
             "images" => many(dlg().add_filter("Images", &["jpg", "jpeg", "png"]).pick_files()),
             _ => Value::Null,
@@ -30,7 +31,7 @@ pub fn pick(kind: &str) -> Value {
     #[cfg(not(windows))]
     {
         let _ = (p(None), many(None));
-        if kind == "videos" || kind == "images" { json!([]) } else { Value::Null }
+        if kind == "videos" || kind == "videos-any" || kind == "images" { json!([]) } else { Value::Null }
     }
 }
 

@@ -95,7 +95,14 @@ fn handle(ctx: &Ctx, req: Request) {
         let v: Value = serde_json::from_slice(&req.body).unwrap_or(Value::Null);
         let out = match (rest, req.method.as_str()) {
             ("pick-video", _) => serde_json::json!({"path": crate::dialogs::pick("video")}),
-            ("addgame", "POST") => crate::features::customgame::start(v["title"].as_str().unwrap_or(""), v["video"].as_str().unwrap_or(""), v["addTo"].as_str(), v["model"] == true),
+            ("pick-videos", _) => serde_json::json!({"paths": crate::dialogs::pick("videos-any")}),
+            ("addgame", "POST") => {
+                let mut videos: Vec<String> = v["videos"].as_array().map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect()).unwrap_or_default();
+                if let Some(one) = v["video"].as_str().filter(|s| !s.is_empty()) {
+                    videos.insert(0, one.to_string());
+                }
+                crate::features::customgame::start(v["title"].as_str().unwrap_or(""), &videos, v["addTo"].as_str(), v["model"] == true, v["template"].as_str(), v["parallel"] == true)
+            }
             ("addgame", _) => crate::features::customgame::status_json(),
             ("share-game", "POST") => crate::features::community::share(v["id"].as_str().unwrap_or("")),
             ("export-log", "POST") => {
@@ -106,7 +113,11 @@ fn handle(ctx: &Ctx, req: Request) {
             ("edit-list", _) => crate::features::gameedit::list(),
             ("edit-load", "POST") => crate::features::gameedit::load(v["id"].as_str().unwrap_or("")),
             ("edit-save", "POST") => crate::features::gameedit::save(v["id"].as_str().unwrap_or(""), &v["rows"]),
+            ("template-games", _) => serde_json::json!(crate::features::games::supported(ctx).into_iter().filter(|g| g["powderGameId"] != "JSTCHT").collect::<Vec<_>>()),
+            ("edit-template", "POST") => crate::features::gameedit::template(v["id"].as_str().unwrap_or("")),
             ("edit-reset", "POST") => crate::features::gameedit::reset(v["id"].as_str().unwrap_or("")),
+            ("prefs", "GET") => crate::features::games::prefs(),
+            ("prefs", "POST") => crate::features::games::set_pref(v["key"].as_str().unwrap_or(""), v["value"].clone()),
             ("model-restore", "POST") => crate::features::customgame::restore(v["id"].as_str().unwrap_or("")),
             ("model-retrain", "POST") => crate::features::customgame::retrain(v["id"].as_str().unwrap_or("")),
             ("datasets", "GET") => serde_json::json!({"path": crate::features::gameedit::datasets_dir().display().to_string()}),

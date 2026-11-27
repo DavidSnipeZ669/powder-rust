@@ -45,7 +45,10 @@ pub fn backbone_path() -> PathBuf {
     if let Ok(p) = std::env::var("POWDER_RS_VISION") {
         return PathBuf::from(p);
     }
-    crate::paths::exe_dir().join("models").join("vision").join("dinov2-small.onnx")
+    crate::paths::exe_dir()
+        .join("models")
+        .join("vision")
+        .join("dinov2-small.onnx")
 }
 
 /// Download the network if this install doesn't have it yet (setup normally does this).
@@ -56,7 +59,9 @@ pub fn ensure_backbone() -> Result<PathBuf> {
     }
     eprintln!("[model] downloading the image network (DINOv2-small, 88 MB, once)...");
     std::fs::create_dir_all(p.parent().unwrap())?;
-    let r = ureq::get(DINO_URL).call().map_err(|e| anyhow::anyhow!("downloading the image network: {e}"))?;
+    let r = ureq::get(DINO_URL)
+        .call()
+        .map_err(|e| anyhow::anyhow!("downloading the image network: {e}"))?;
     let tmp = p.with_extension("part");
     let mut f = std::fs::File::create(&tmp)?;
     std::io::copy(&mut r.into_reader(), &mut f)?;
@@ -76,8 +81,15 @@ pub struct Extractor {
 }
 impl Extractor {
     pub fn new(kind: &str) -> Result<Self> {
-        let session = if kind == DINO { Some(crate::runtime::session(&ensure_backbone()?)?) } else { None };
-        Ok(Self { kind: kind.into(), session })
+        let session = if kind == DINO {
+            Some(crate::runtime::session(&ensure_backbone()?)?)
+        } else {
+            None
+        };
+        Ok(Self {
+            kind: kind.into(),
+            session,
+        })
     }
     /// the network if it can be had, otherwise the built-in features
     pub fn best() -> Self {
@@ -85,15 +97,26 @@ impl Extractor {
             Ok(e) => e,
             Err(e) => {
                 eprintln!("[model] image network unavailable ({e:#}); using the simpler built-in features");
-                Self { kind: GRID.into(), session: None }
+                Self {
+                    kind: GRID.into(),
+                    session: None,
+                }
             }
         }
     }
     pub fn features(&mut self, img: &RgbImage) -> Result<Vec<f32>> {
-        let Some(s) = self.session.as_mut() else { return Ok(features(img)) };
+        let Some(s) = self.session.as_mut() else {
+            return Ok(features(img));
+        };
         // the network takes 224x224: the whole frame plus its 4 quarters (keeps small HUD details)
         let (w, h) = (img.width(), img.height());
-        let views = [(0, 0, w, h), (0, 0, w / 2, h / 2), (w / 2, 0, w - w / 2, h / 2), (0, h / 2, w / 2, h - h / 2), (w / 2, h / 2, w - w / 2, h - h / 2)];
+        let views = [
+            (0, 0, w, h),
+            (0, 0, w / 2, h / 2),
+            (w / 2, 0, w - w / 2, h / 2),
+            (0, h / 2, w / 2, h - h / 2),
+            (w / 2, h / 2, w - w / 2, h - h / 2),
+        ];
         let mut a = ndarray::Array4::<f32>::zeros((views.len(), 3, 224, 224));
         const MEAN: [f32; 3] = [0.485, 0.456, 0.406];
         const STD: [f32; 3] = [0.229, 0.224, 0.225];
@@ -106,15 +129,23 @@ impl Extractor {
                 }
             }
         }
-        let out = s.run(vec![("pixel_values".to_string(), ort::session::SessionInputValue::from(ort::value::TensorRef::from_array_view(&a)?))]).map_err(|e| anyhow::anyhow!("image network: {e}"))?;
-        let (shape, d) = out["last_hidden_state"].try_extract_tensor::<f32>().map_err(|e| anyhow::anyhow!("{e}"))?;
+        let out = s
+            .run(vec![(
+                "pixel_values".to_string(),
+                ort::session::SessionInputValue::from(ort::value::TensorRef::from_array_view(&a)?),
+            )])
+            .map_err(|e| anyhow::anyhow!("image network: {e}"))?;
+        let (shape, d) = out["last_hidden_state"]
+            .try_extract_tensor::<f32>()
+            .map_err(|e| anyhow::anyhow!("{e}"))?;
         let (n, t, c) = (shape[0] as usize, shape[1] as usize, shape[2] as usize);
         let mut f = Vec::with_capacity(n * c * 2);
         for v in 0..n {
             let base = v * t * c;
             f.extend_from_slice(&d[base..base + c]); // the summary token
             for j in 0..c {
-                f.push((1..t).map(|i| d[base + i * c + j]).sum::<f32>() / (t - 1) as f32); // average of the patches
+                f.push((1..t).map(|i| d[base + i * c + j]).sum::<f32>() / (t - 1) as f32);
+                // average of the patches
             }
         }
         Ok(f)
@@ -136,7 +167,10 @@ pub struct Model {
 pub fn features(img: &RgbImage) -> Vec<f32> {
     let small = image::imageops::resize(img, GW * 4, GH * 4, FilterType::Triangle);
     let (w, h) = (GW * 4, GH * 4);
-    let gray: Vec<f32> = small.pixels().map(|p| (0.299 * p[0] as f32 + 0.587 * p[1] as f32 + 0.114 * p[2] as f32) / 255.0).collect();
+    let gray: Vec<f32> = small
+        .pixels()
+        .map(|p| (0.299 * p[0] as f32 + 0.587 * p[1] as f32 + 0.114 * p[2] as f32) / 255.0)
+        .collect();
     let at = |x: u32, y: u32| gray[(y.min(h - 1) * w + x.min(w - 1)) as usize];
     // per cell: mean brightness + 4 edge-direction energies
     let mut f = vec![0f32; (GW * GH * 5) as usize];
@@ -154,7 +188,13 @@ pub fn features(img: &RgbImage) -> Vec<f32> {
     }
     // coarse colour (HUD colours: red kill markers, gold medals...)
     let col = image::imageops::resize(img, 16, 9, FilterType::Triangle);
-    f.extend(col.pixels().flat_map(|p| [p[0] as f32 / 255.0, p[1] as f32 / 255.0, p[2] as f32 / 255.0]));
+    f.extend(col.pixels().flat_map(|p| {
+        [
+            p[0] as f32 / 255.0,
+            p[1] as f32 / 255.0,
+            p[2] as f32 / 255.0,
+        ]
+    }));
     f
 }
 
@@ -173,8 +213,17 @@ fn keystream_xor(nonce: &[u8], data: &mut [u8]) {
     }
 }
 fn tag(nonce: &[u8], ct: &[u8]) -> [u8; 32] {
-    let inner: [u8; 32] = Sha256::new().chain_update(KEY).chain_update(nonce).chain_update(ct).finalize().into();
-    Sha256::new().chain_update(KEY).chain_update(inner).finalize().into()
+    let inner: [u8; 32] = Sha256::new()
+        .chain_update(KEY)
+        .chain_update(nonce)
+        .chain_update(ct)
+        .finalize()
+        .into();
+    Sha256::new()
+        .chain_update(KEY)
+        .chain_update(inner)
+        .finalize()
+        .into()
 }
 
 impl Model {
@@ -188,7 +237,13 @@ impl Model {
                 p.extend(x.to_le_bytes());
             }
         }
-        let nonce: [u8; 16] = Sha256::digest(format!("{:?}{}", std::time::SystemTime::now(), self.meta.game))[..16].try_into().unwrap();
+        let nonce: [u8; 16] = Sha256::digest(format!(
+            "{:?}{}",
+            std::time::SystemTime::now(),
+            self.meta.game
+        ))[..16]
+            .try_into()
+            .unwrap();
         keystream_xor(&nonce, &mut p);
         let mut out = MAGIC.to_vec();
         out.extend(nonce);
@@ -213,7 +268,9 @@ impl Model {
         keystream_xor(nonce, &mut p);
         let ml = u32::from_le_bytes(p[..4].try_into()?) as usize;
         let meta: Meta = serde_json::from_slice(&p[4..4 + ml])?;
-        let mut fl = p[4 + ml..].chunks_exact(4).map(|c| f32::from_le_bytes(c.try_into().unwrap()));
+        let mut fl = p[4 + ml..]
+            .chunks_exact(4)
+            .map(|c| f32::from_le_bytes(c.try_into().unwrap()));
         let d = meta.dims;
         let k = meta.classes.len();
         let mut take = |n: usize| -> Vec<f32> { (&mut fl).take(n).collect() };
@@ -221,14 +278,34 @@ impl Model {
         if bias.len() != k {
             bail!("{} is incomplete", path.display());
         }
-        Ok(Self { meta, mean, std, w, b: bias })
+        Ok(Self {
+            meta,
+            mean,
+            std,
+            w,
+            b: bias,
+        })
     }
 
     /// probability per class (classes[0] = nothing)
     pub fn predict(&self, f: &[f32]) -> Vec<f32> {
         let d = self.meta.dims;
-        let x: Vec<f32> = f.iter().zip(&self.mean).zip(&self.std).map(|((v, m), s)| (v - m) / s).collect();
-        let z: Vec<f32> = (0..self.meta.classes.len()).map(|c| self.b[c] + self.w[c * d..(c + 1) * d].iter().zip(&x).map(|(a, b)| a * b).sum::<f32>()).collect();
+        let x: Vec<f32> = f
+            .iter()
+            .zip(&self.mean)
+            .zip(&self.std)
+            .map(|((v, m), s)| (v - m) / s)
+            .collect();
+        let z: Vec<f32> = (0..self.meta.classes.len())
+            .map(|c| {
+                self.b[c]
+                    + self.w[c * d..(c + 1) * d]
+                        .iter()
+                        .zip(&x)
+                        .map(|(a, b)| a * b)
+                        .sum::<f32>()
+            })
+            .collect();
         softmax(&z)
     }
 }
@@ -242,13 +319,24 @@ fn softmax(z: &[f32]) -> Vec<f32> {
 
 /// The model file of a game, if it has one.
 pub fn find(game_dir: &Path) -> Option<PathBuf> {
-    std::fs::read_dir(game_dir).ok()?.filter_map(|e| e.ok()).map(|e| e.path()).find(|p| p.extension().map(|x| x == "rwdmdl").unwrap_or(false))
+    std::fs::read_dir(game_dir)
+        .ok()?
+        .filter_map(|e| e.ok())
+        .map(|e| e.path())
+        .find(|p| {
+            p.extension().map(|x| x == "rwdmdl").unwrap_or(false)
+                && !p.to_string_lossy().ends_with(".fight.rwdmdl")
+        })
 }
 
 // ---------- dataset ----------
 
 pub fn dataset_dir(games_dir: &Path, id: &str) -> PathBuf {
-    games_dir.parent().unwrap_or(games_dir).join("datasets").join(id)
+    games_dir
+        .parent()
+        .unwrap_or(games_dir)
+        .join("datasets")
+        .join(id)
 }
 
 // ---------- training ----------
@@ -273,7 +361,9 @@ fn load_cache(p: &Path) -> std::collections::HashMap<String, Vec<f32>> {
         }
         let k = String::from_utf8_lossy(&b[i..i + nl]).to_string();
         i += nl;
-        let v = (0..nd).map(|j| unbf16([b[i + j * 2], b[i + j * 2 + 1]])).collect();
+        let v = (0..nd)
+            .map(|j| unbf16([b[i + j * 2], b[i + j * 2 + 1]]))
+            .collect();
         i += nd * 2;
         m.insert(k, v);
     }
@@ -293,6 +383,84 @@ fn save_cache(p: &Path, m: &std::collections::HashMap<String, Vec<f32>>) -> Resu
     Ok(())
 }
 
+pub fn load_cache_pub(p: &Path) -> std::collections::HashMap<String, Vec<f32>> {
+    load_cache(p)
+}
+pub fn save_cache_pub(p: &Path, m: &std::collections::HashMap<String, Vec<f32>>) -> Result<()> {
+    save_cache(p, m)
+}
+
+/// A model from ready features (used for the "fighting" model): normalise, train on 4 of every
+/// 5, report accuracy on the rest.
+pub fn train_simple(
+    id: &str,
+    kind: &str,
+    classes: Vec<String>,
+    mut xs: Vec<Vec<f32>>,
+    ys: Vec<usize>,
+    threshold: f32,
+) -> Result<Model> {
+    if xs.is_empty() {
+        bail!("nothing to train on");
+    }
+    let (n, d, k) = (xs.len(), xs[0].len(), classes.len());
+    let mut mean = vec![0f32; d];
+    let mut std = vec![0f32; d];
+    for x in &xs {
+        for j in 0..d {
+            mean[j] += x[j] / n as f32
+        }
+    }
+    for x in &xs {
+        for j in 0..d {
+            std[j] += (x[j] - mean[j]).powi(2) / n as f32
+        }
+    }
+    for s in std.iter_mut() {
+        *s = s.sqrt().max(1e-3)
+    }
+    for x in xs.iter_mut() {
+        for j in 0..d {
+            x[j] = (x[j] - mean[j]) / std[j]
+        }
+    }
+    let (train_i, test_i): (Vec<usize>, Vec<usize>) = (0..n).partition(|i| i % 5 != 0);
+    let (w, b) = fit(&xs, &ys, &train_i, k, d, 40, false);
+    let mut m = Model {
+        meta: Meta {
+            game: id.into(),
+            features: kind.into(),
+            classes: classes.clone(),
+            dims: d,
+            threshold,
+            trained_images: n,
+            accuracy: Default::default(),
+            created: String::new(),
+        },
+        mean: vec![0.0; d],
+        std: vec![1.0; d],
+        w,
+        b,
+    };
+    let mut right = vec![(0usize, 0usize); k];
+    for &i in &test_i {
+        let p = m.predict(&xs[i]);
+        let best = p.iter().enumerate().max_by(|a, b| a.1.total_cmp(b.1)).map(|x| x.0).unwrap();
+        right[ys[i]].1 += 1;
+        if best == ys[i] {
+            right[ys[i]].0 += 1
+        }
+    }
+    for (c, (r, t)) in right.iter().enumerate() {
+        if *t > 0 {
+            m.meta.accuracy.insert(classes[c].clone(), *r as f32 / *t as f32);
+        }
+    }
+    m.mean = mean;
+    m.std = std;
+    Ok(m)
+}
+
 /// The look-based checks (3 = look-alikes, 5 = confident learning) in the given order, then (if
 /// `fit`) the training itself. With `fit` false only the checks run (used to run check 5 early).
 pub fn train_opts(id: &str, ds: &Path, checks: &[u8], fit_model: bool) -> Result<Option<Model>> {
@@ -303,7 +471,10 @@ pub fn train_opts(id: &str, ds: &Path, checks: &[u8], fit_model: bool) -> Result
     let prefix = format!("{id}_");
     let mut classes = vec!["nothing".to_string()];
     let mut dirs: Vec<(String, PathBuf)> = Vec::new();
-    for e in std::fs::read_dir(ds).with_context(|| format!("no dataset at {}", ds.display()))?.flatten() {
+    for e in std::fs::read_dir(ds)
+        .with_context(|| format!("no dataset at {}", ds.display()))?
+        .flatten()
+    {
         let p = e.path();
         let name = e.file_name().to_string_lossy().to_string();
         if !p.is_dir() {
@@ -326,25 +497,39 @@ pub fn train_opts(id: &str, ds: &Path, checks: &[u8], fit_model: bool) -> Result
         let c = classes.iter().position(|x| x == ev).unwrap();
         for f in std::fs::read_dir(d)?.flatten() {
             let p = f.path();
-            if matches!(p.extension().and_then(|x| x.to_str()).map(|s| s.to_ascii_lowercase()).as_deref(), Some("jpg" | "jpeg" | "png" | "webp")) {
+            if matches!(
+                p.extension()
+                    .and_then(|x| x.to_str())
+                    .map(|s| s.to_ascii_lowercase())
+                    .as_deref(),
+                Some("jpg" | "jpeg" | "png" | "webp")
+            ) {
                 files.push((c, p));
             }
         }
     }
     // drop events with too few pictures to learn from
     let count = |c: usize, f: &[(usize, PathBuf)]| f.iter().filter(|x| x.0 == c).count();
-    let keep: Vec<usize> = (0..classes.len()).filter(|&c| c == 0 || count(c, &files) >= 8).collect();
+    let keep: Vec<usize> = (0..classes.len())
+        .filter(|&c| c == 0 || count(c, &files) >= 8)
+        .collect();
     if count(0, &files) < 8 || keep.len() < 2 {
         bail!("not enough training pictures yet (need at least 8 for \"nothing\" and for one event) - add another video");
     }
     let classes: Vec<String> = keep.iter().map(|&c| classes[c].clone()).collect();
     let total = files.len();
     for (i, (c, p)) in files.iter().enumerate() {
-        let Some(nc) = keep.iter().position(|k| k == c) else { continue };
+        let Some(nc) = keep.iter().position(|k| k == c) else {
+            continue;
+        };
         if i % 100 == 0 {
             eprintln!("[model] reading pictures {}/{}", i, total);
         }
-        let key = p.strip_prefix(ds).unwrap_or(p).to_string_lossy().replace('\\', "/");
+        let key = p
+            .strip_prefix(ds)
+            .unwrap_or(p)
+            .to_string_lossy()
+            .replace('\\', "/");
         seen.insert(key.clone());
         if let Some(v) = cache.get(&key) {
             xs.push(v.clone());
@@ -352,7 +537,10 @@ pub fn train_opts(id: &str, ds: &Path, checks: &[u8], fit_model: bool) -> Result
             paths.push(p.clone());
             continue;
         }
-        match image::open(p).map_err(anyhow::Error::from).and_then(|img| ex.features(&img.to_rgb8())) {
+        match image::open(p)
+            .map_err(anyhow::Error::from)
+            .and_then(|img| ex.features(&img.to_rgb8()))
+        {
             Ok(v) => {
                 cache.insert(key, v.clone());
                 xs.push(v);
@@ -373,16 +561,25 @@ pub fn train_opts(id: &str, ds: &Path, checks: &[u8], fit_model: bool) -> Result
     let mut mean = vec![0f32; d];
     let mut std = vec![0f32; d];
     for x in &xs {
-        for j in 0..d { mean[j] += x[j] / n as f32 }
+        for j in 0..d {
+            mean[j] += x[j] / n as f32
+        }
     }
     for x in &xs {
-        for j in 0..d { std[j] += (x[j] - mean[j]).powi(2) / n as f32 }
+        for j in 0..d {
+            std[j] += (x[j] - mean[j]).powi(2) / n as f32
+        }
     }
-    for s in std.iter_mut() { *s = s.sqrt().max(1e-3) }
+    for s in std.iter_mut() {
+        *s = s.sqrt().max(1e-3)
+    }
     for x in xs.iter_mut() {
-        for j in 0..d { x[j] = (x[j] - mean[j]) / std[j] }
+        for j in 0..d {
+            x[j] = (x[j] - mean[j]) / std[j]
+        }
     }
     let locked = trusted(ds);
+    let scan = scan_labels(ds);
     for &check in checks {
         let n = xs.len();
         // look-based checks need plenty of pictures to judge by: on small sets they mostly guess
@@ -393,22 +590,40 @@ pub fn train_opts(id: &str, ds: &Path, checks: &[u8], fit_model: bool) -> Result
         }
         // 3: pictures whose closest look-alikes are almost all filed under one other event
         // 5: confident learning - a cautious model that never saw the picture judges it
-        let flagged: Vec<usize> = (if check == 3 { knn_flags(&xs, &ys, k) } else { cl_flags(&xs, &ys, k, d) })
-            .into_iter()
-            .filter(|&i| !paths[i].file_name().map(|f| locked.contains(&*f.to_string_lossy())).unwrap_or(false))
-            .collect();
+        let flagged: Vec<usize> = (if check == 3 {
+            knn_flags(&xs, &ys, k)
+        } else {
+            cl_flags(&xs, &ys, k, d)
+        })
+        .into_iter()
+        .filter(|&i| {
+            let f = paths[i]
+                .file_name()
+                .map(|f| f.to_string_lossy().to_string())
+                .unwrap_or_default();
+            !locked.contains(&f) && !text_backed(&f, &classes[ys[i]], &scan)
+        })
+        .collect();
         if flagged.is_empty() {
             continue;
         }
-        let review = ds.join(format!("{id}_review"));
-        std::fs::create_dir_all(&review)?;
         for &i in &flagged {
-            if let Some(f) = paths[i].file_name() {
-                let _ = std::fs::rename(&paths[i], review.join(f));
-            }
+            let _ = to_review(
+                id,
+                ds,
+                &paths[i],
+                if check == 3 { "check 3" } else { "check 5" },
+            );
         }
-        let what = if check == 3 { "third check (look-alikes)" } else { "fifth check (confident learning)" };
-        eprintln!("[model] {what}: {} picture(s) moved to {id}_review", flagged.len());
+        let what = if check == 3 {
+            "third check (look-alikes)"
+        } else {
+            "fifth check (confident learning)"
+        };
+        eprintln!(
+            "[model] {what}: {} picture(s) moved to {id}_review",
+            flagged.len()
+        );
         println!("{what}: {} picture(s) moved to {id}_review", flagged.len());
         let keep: Vec<bool> = (0..n).map(|i| !flagged.contains(&i)).collect();
         let mut it = keep.iter();
@@ -426,25 +641,52 @@ pub fn train_opts(id: &str, ds: &Path, checks: &[u8], fit_model: bool) -> Result
     let (train_i, test_i): (Vec<usize>, Vec<usize>) = (0..n).partition(|i| i % 5 != 0);
     let (w, b) = fit(&xs, &ys, &train_i, k, d, 40, true);
     let mut m = Model {
-        meta: Meta { game: id.into(), features: ex.kind.clone(), classes: classes.clone(), dims: d, threshold: 0.8, trained_images: n, accuracy: Default::default(), created: String::new() },
-        mean: vec![0.0; d], std: vec![1.0; d], w, b,
+        meta: Meta {
+            game: id.into(),
+            features: ex.kind.clone(),
+            classes: classes.clone(),
+            dims: d,
+            threshold: 0.8,
+            trained_images: n,
+            accuracy: Default::default(),
+            created: String::new(),
+        },
+        mean: vec![0.0; d],
+        std: vec![1.0; d],
+        w,
+        b,
     };
     // accuracy on the held-back pictures (features already normalised here)
     let mut right = vec![(0usize, 0usize); k];
     for &i in &test_i {
         let p = m.predict(&xs[i]);
-        let best = p.iter().enumerate().max_by(|a, b| a.1.total_cmp(b.1)).map(|x| x.0).unwrap();
+        let best = p
+            .iter()
+            .enumerate()
+            .max_by(|a, b| a.1.total_cmp(b.1))
+            .map(|x| x.0)
+            .unwrap();
         right[ys[i]].1 += 1;
-        if best == ys[i] { right[ys[i]].0 += 1 }
+        if best == ys[i] {
+            right[ys[i]].0 += 1
+        }
     }
     for (c, (r, t)) in right.iter().enumerate() {
         if *t > 0 {
-            m.meta.accuracy.insert(classes[c].clone(), *r as f32 / *t as f32);
+            m.meta
+                .accuracy
+                .insert(classes[c].clone(), *r as f32 / *t as f32);
         }
     }
     m.mean = mean;
     m.std = std;
-    m.meta.created = format!("{:?}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0));
+    m.meta.created = format!(
+        "{:?}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0)
+    );
     Ok(Some(m))
 }
 
@@ -453,14 +695,28 @@ pub fn train_opts(id: &str, ds: &Path, checks: &[u8], fit_model: bool) -> Result
 pub fn knn_flags(xs: &[Vec<f32>], ys: &[usize], k: usize) -> Vec<usize> {
     let n = xs.len();
     let mut count = vec![0usize; k];
-    for &y in ys { count[y] += 1 }
-    let norms: Vec<f32> = xs.iter().map(|x| x.iter().map(|v| v * v).sum::<f32>().sqrt().max(1e-6)).collect();
+    for &y in ys {
+        count[y] += 1
+    }
+    let norms: Vec<f32> = xs
+        .iter()
+        .map(|x| x.iter().map(|v| v * v).sum::<f32>().sqrt().max(1e-6))
+        .collect();
     let mut flagged = Vec::new();
     for i in 0..n {
         if count[ys[i]] < 15 {
             continue;
         }
-        let mut sims: Vec<(f32, usize)> = (0..n).filter(|&j| j != i).map(|j| (xs[i].iter().zip(&xs[j]).map(|(a, b)| a * b).sum::<f32>() / (norms[i] * norms[j]), j)).collect();
+        let mut sims: Vec<(f32, usize)> = (0..n)
+            .filter(|&j| j != i)
+            .map(|j| {
+                (
+                    xs[i].iter().zip(&xs[j]).map(|(a, b)| a * b).sum::<f32>()
+                        / (norms[i] * norms[j]),
+                    j,
+                )
+            })
+            .collect();
         let nth = 7.min(sims.len().saturating_sub(1));
         sims.select_nth_unstable_by(nth, |a, b| b.0.total_cmp(&a.0));
         let mut votes = vec![0usize; k];
@@ -469,7 +725,12 @@ pub fn knn_flags(xs: &[Vec<f32>], ys: &[usize], k: usize) -> Vec<usize> {
         for (_, j) in top.iter().take(7) {
             votes[ys[*j]] += 1;
         }
-        let (best, nb) = votes.iter().enumerate().max_by_key(|x| *x.1).map(|(c, v)| (c, *v)).unwrap();
+        let (best, nb) = votes
+            .iter()
+            .enumerate()
+            .max_by_key(|x| *x.1)
+            .map(|(c, v)| (c, *v))
+            .unwrap();
         if best != ys[i] && nb >= 5 && votes[ys[i]] <= 1 {
             flagged.push(i);
         }
@@ -485,14 +746,25 @@ pub fn cl_flags(xs: &[Vec<f32>], ys: &[usize], k: usize, d: usize) -> Vec<usize>
         let tr: Vec<usize> = (0..n).filter(|i| (i * 7 + 3) % 5 != fold).collect();
         let (w, b) = fit_l2(xs, ys, &tr, k, d, 15, false, 5e-2);
         for i in (0..n).filter(|i| (i * 7 + 3) % 5 == fold) {
-            let z: Vec<f32> = (0..k).map(|c| b[c] + w[c * d..(c + 1) * d].iter().zip(&xs[i]).map(|(a, v)| a * v).sum::<f32>()).collect();
+            let z: Vec<f32> = (0..k)
+                .map(|c| {
+                    b[c] + w[c * d..(c + 1) * d]
+                        .iter()
+                        .zip(&xs[i])
+                        .map(|(a, v)| a * v)
+                        .sum::<f32>()
+                })
+                .collect();
             probs[i] = softmax(&z);
         }
     }
     let mut bar = vec![1f32; k];
     let mut count = vec![0usize; k];
     for c in 0..k {
-        let own: Vec<f32> = (0..n).filter(|&i| ys[i] == c).map(|i| probs[i][c]).collect();
+        let own: Vec<f32> = (0..n)
+            .filter(|&i| ys[i] == c)
+            .map(|i| probs[i][c])
+            .collect();
         count[c] = own.len();
         if !own.is_empty() {
             bar[c] = own.iter().sum::<f32>() / own.len() as f32;
@@ -504,7 +776,9 @@ pub fn cl_flags(xs: &[Vec<f32>], ys: &[usize], k: usize, d: usize) -> Vec<usize>
         if count[y] < 15 {
             continue;
         }
-        let other = (0..k).filter(|&c| c != y && count[c] >= 5 && probs[i][c] >= bar[c]).max_by(|a, b| probs[i][*a].total_cmp(&probs[i][*b]));
+        let other = (0..k)
+            .filter(|&c| c != y && count[c] >= 5 && probs[i][c] >= bar[c])
+            .max_by(|a, b| probs[i][*a].total_cmp(&probs[i][*b]));
         if let Some(c) = other {
             if probs[i][y] < bar[y] && probs[i][c] > probs[i][y] {
                 flagged.push(i);
@@ -521,12 +795,27 @@ pub fn cl_flags(xs: &[Vec<f32>], ys: &[usize], k: usize, d: usize) -> Vec<usize>
 /// reads the middle of the screen) is always flagged.
 pub fn location_flags_in(items: &[(usize, f32, f32)], areas: &[Vec<[f32; 4]>]) -> Vec<usize> {
     let mut out = Vec::new();
-    for (i, it) in items.iter().enumerate() {
-        if let Some(a) = areas.get(it.0).filter(|a| !a.is_empty()) {
-            let m = 0.02;
-            if !a.iter().any(|r| it.1 >= r[0] - m && it.1 <= r[2] + m && it.2 >= r[1] - m && it.2 <= r[3] + m) {
-                out.push(i);
-            }
+    let inside = |it: &(usize, f32, f32), a: &[[f32; 4]]| {
+        let m = 0.02;
+        a.iter()
+            .any(|r| it.1 >= r[0] - m && it.1 <= r[2] + m && it.2 >= r[1] - m && it.2 <= r[3] + m)
+    };
+    // the detector areas fit the screen layout they were set up on; a group (one event in one
+    // video) whose text is mostly somewhere else is another layout (HUD size, another player's
+    // video), so only the "far from the rest" rule below judges it
+    let groups: std::collections::BTreeSet<usize> = items.iter().map(|x| x.0).collect();
+    for &g in &groups {
+        let Some(a) = areas.get(g).filter(|a| !a.is_empty()) else {
+            continue;
+        };
+        let idx: Vec<usize> = (0..items.len()).filter(|&i| items[i].0 == g).collect();
+        let outside: Vec<usize> = idx
+            .iter()
+            .copied()
+            .filter(|&i| !inside(&items[i], a))
+            .collect();
+        if outside.len() * 2 < idx.len() {
+            out.extend(outside);
         }
     }
     let classes: std::collections::BTreeSet<usize> = items.iter().map(|x| x.0).collect();
@@ -535,10 +824,20 @@ pub fn location_flags_in(items: &[(usize, f32, f32)], areas: &[Vec<[f32; 4]>]) -
         if idx.len() < 10 {
             continue;
         }
-        let med = |mut v: Vec<f32>| { v.sort_by(|a, b| a.total_cmp(b)); v[v.len() / 2] };
+        let med = |mut v: Vec<f32>| {
+            v.sort_by(|a, b| a.total_cmp(b));
+            v[v.len() / 2]
+        };
         let mx = med(idx.iter().map(|&i| items[i].1).collect());
         let my = med(idx.iter().map(|&i| items[i].2).collect());
-        let far: Vec<usize> = idx.iter().copied().filter(|&i| ((items[i].1 - mx).powi(2) + (items[i].2 - my).powi(2)).sqrt() > 0.15 && !out.contains(&i)).collect();
+        let far: Vec<usize> = idx
+            .iter()
+            .copied()
+            .filter(|&i| {
+                ((items[i].1 - mx).powi(2) + (items[i].2 - my).powi(2)).sqrt() > 0.15
+                    && !out.contains(&i)
+            })
+            .collect();
         if !far.is_empty() && far.len() * 4 <= idx.len() {
             out.extend(far);
         }
@@ -547,14 +846,42 @@ pub fn location_flags_in(items: &[(usize, f32, f32)], areas: &[Vec<[f32; 4]>]) -
 }
 
 /// Softmax classifier by SGD, class-balanced (rare events count as much as common ones).
-fn fit(xs: &[Vec<f32>], ys: &[usize], idx: &[usize], k: usize, d: usize, epochs: usize, progress: bool) -> (Vec<f32>, Vec<f32>) {
+fn fit(
+    xs: &[Vec<f32>],
+    ys: &[usize],
+    idx: &[usize],
+    k: usize,
+    d: usize,
+    epochs: usize,
+    progress: bool,
+) -> (Vec<f32>, Vec<f32>) {
     fit_l2(xs, ys, idx, k, d, epochs, progress, 1e-4)
 }
 
-fn fit_l2(xs: &[Vec<f32>], ys: &[usize], idx: &[usize], k: usize, d: usize, epochs: usize, progress: bool, l2: f32) -> (Vec<f32>, Vec<f32>) {
+fn fit_l2(
+    xs: &[Vec<f32>],
+    ys: &[usize],
+    idx: &[usize],
+    k: usize,
+    d: usize,
+    epochs: usize,
+    progress: bool,
+    l2: f32,
+) -> (Vec<f32>, Vec<f32>) {
     let mut cnt = vec![0usize; k];
-    for &i in idx { cnt[ys[i]] += 1 }
-    let cw: Vec<f32> = cnt.iter().map(|&c| if c == 0 { 0.0 } else { idx.len() as f32 / (k as f32 * c as f32) }).collect();
+    for &i in idx {
+        cnt[ys[i]] += 1
+    }
+    let cw: Vec<f32> = cnt
+        .iter()
+        .map(|&c| {
+            if c == 0 {
+                0.0
+            } else {
+                idx.len() as f32 / (k as f32 * c as f32)
+            }
+        })
+        .collect();
     let mut w = vec![0f32; k * d];
     let mut b = vec![0f32; k];
     let mut order = idx.to_vec();
@@ -562,17 +889,29 @@ fn fit_l2(xs: &[Vec<f32>], ys: &[usize], idx: &[usize], k: usize, d: usize, epoc
     for ep in 0..epochs {
         let lr = 0.02 / (1.0 + ep as f32 * 0.15);
         for i in (1..order.len()).rev() {
-            seed ^= seed << 13; seed ^= seed >> 7; seed ^= seed << 17;
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
             order.swap(i, (seed % (i as u64 + 1)) as usize);
         }
         for &i in &order {
             let x = &xs[i];
-            let z: Vec<f32> = (0..k).map(|c| b[c] + w[c * d..(c + 1) * d].iter().zip(x).map(|(a, v)| a * v).sum::<f32>()).collect();
+            let z: Vec<f32> = (0..k)
+                .map(|c| {
+                    b[c] + w[c * d..(c + 1) * d]
+                        .iter()
+                        .zip(x)
+                        .map(|(a, v)| a * v)
+                        .sum::<f32>()
+                })
+                .collect();
             let p = softmax(&z);
             for c in 0..k {
                 let g = (p[c] - if ys[i] == c { 1.0 } else { 0.0 }) * cw[ys[i]] * lr;
                 let row = &mut w[c * d..(c + 1) * d];
-                for j in 0..d { row[j] -= g * x[j] + lr * l2 * row[j] }
+                for j in 0..d {
+                    row[j] -= g * x[j] + lr * l2 * row[j]
+                }
                 b[c] -= g;
             }
         }
@@ -597,11 +936,21 @@ impl Detector {
     pub fn new(model: Model) -> Result<Self> {
         let k = model.meta.classes.len();
         let ex = Extractor::new(&model.meta.features)?;
-        Ok(Self { model, ex, streak: vec![0; k], last: vec![f64::MIN; k] })
+        Ok(Self {
+            model,
+            ex,
+            streak: vec![0; k],
+            last: vec![f64::MIN; k],
+        })
     }
     pub fn push(&mut self, t: f64, img: &RgbImage) -> Result<Option<String>> {
         let p = self.model.predict(&self.ex.features(img)?);
-        let (best, pb) = p.iter().enumerate().max_by(|a, b| a.1.total_cmp(b.1)).map(|(i, v)| (i, *v)).unwrap();
+        let (best, pb) = p
+            .iter()
+            .enumerate()
+            .max_by(|a, b| a.1.total_cmp(b.1))
+            .map(|(i, v)| (i, *v))
+            .unwrap();
         let mut out = None;
         for c in 1..p.len() {
             if c == best && pb >= self.model.meta.threshold {
@@ -619,9 +968,25 @@ impl Detector {
 }
 
 /// Run a model over a whole video (no text reading), returns (event, time_sec).
-pub fn detect(ffmpeg: &Path, video: &Path, model: Model, start: Option<f64>, end: Option<f64>) -> Result<Vec<(String, f64)>> {
+pub fn detect(
+    ffmpeg: &Path,
+    video: &Path,
+    model: Model,
+    start: Option<f64>,
+    end: Option<f64>,
+) -> Result<Vec<(String, f64)>> {
     let info = crate::video::probe(ffmpeg, video)?;
-    let mut r = crate::video::FrameReader::open(ffmpeg, video, &info, &crate::video::SampleOptions { fps: 2.0, start, end, max_height: Some(360) })?;
+    let mut r = crate::video::FrameReader::open(
+        ffmpeg,
+        video,
+        &info,
+        &crate::video::SampleOptions {
+            fps: 2.0,
+            start,
+            end,
+            max_height: Some(360),
+        },
+    )?;
     let mut det = Detector::new(model)?;
     let mut out = Vec::new();
     let dur = info.duration_sec.unwrap_or(0.0);
@@ -629,7 +994,10 @@ pub fn detect(ffmpeg: &Path, video: &Path, model: Model, start: Option<f64>, end
     while let Some((t, img)) = r.next_frame()? {
         n += 1;
         if n % 400 == 0 && dur > 0.0 {
-            eprintln!("[model] looking for events {:.0}%", (t / dur * 100.0).min(100.0));
+            eprintln!(
+                "[model] looking for events {:.0}%",
+                (t / dur * 100.0).min(100.0)
+            );
         }
         if let Some(e) = det.push(t, &img)? {
             out.push((e, (t - 0.25).max(0.0)));
@@ -643,7 +1011,13 @@ pub fn detect(ffmpeg: &Path, video: &Path, model: Model, start: Option<f64>, end
 /// "DOUBLE KILL", "KILL CONFIRMED" or "KILLS"). "nothing" frames have none of the events' words
 /// at all. Re-running on the same video replaces its earlier automatic pictures; pictures added
 /// by hand (other file names) are kept.
-pub fn extract_from_scan(work: &Path, game_dir: &Path, video: &Path, id: &str, ds: &Path) -> Result<(usize, usize)> {
+pub fn extract_from_scan(
+    work: &Path,
+    game_dir: &Path,
+    video: &Path,
+    id: &str,
+    ds: &Path,
+) -> Result<(usize, usize)> {
     use crate::discover::tokens;
     let scans = crate::discover::load_all(work);
     let name = |p: &str| p.rsplit(['/', '\\']).next().unwrap_or(p).to_lowercase();
@@ -652,7 +1026,10 @@ pub fn extract_from_scan(work: &Path, game_dir: &Path, video: &Path, id: &str, d
         bail!("this video hasn't been scanned for the game yet - add it with Add Game first");
     };
     let lua = std::fs::read_to_string(game_dir.join("game_postprocess.lua"))?;
-    let re = regex::Regex::new(r#"event\s*=\s*"([^"]+)"\s*,\s*crop\s*=\s*"[^"]*"\s*,\s*match\s*=\s*\{([^}]*)\}"#).unwrap();
+    let re = regex::Regex::new(
+        r#"event\s*=\s*"([^"]+)"\s*,\s*crop\s*=\s*"[^"]*"\s*,\s*match\s*=\s*\{([^}]*)\}"#,
+    )
+    .unwrap();
     let mut dets: Vec<(String, Vec<String>)> = Vec::new();
     for c in re.captures_iter(&lua) {
         for w in c[2].split('"').skip(1).step_by(2) {
@@ -665,7 +1042,8 @@ pub fn extract_from_scan(work: &Path, game_dir: &Path, video: &Path, id: &str, d
     if dets.is_empty() {
         bail!("no events found in the game's settings");
     }
-    let all_words: std::collections::HashSet<String> = dets.iter().flat_map(|x| x.1.iter().cloned()).collect();
+    let all_words: std::collections::HashSet<String> =
+        dets.iter().flat_map(|x| x.1.iter().cloned()).collect();
     let n = d.frame_times.len();
     // OCR sometimes splits one line into boxes ("KILL" + "CONFIRMED"): join boxes on the same line
     let (fw, fh) = (d.width.max(1) as f32, d.height.max(1) as f32);
@@ -686,7 +1064,9 @@ pub fn extract_from_scan(work: &Path, game_dir: &Path, video: &Path, id: &str, d
             match merged.iter_mut().find(|(m, _)| {
                 let mh = (m[3] - m[1]) * fh;
                 let my = (m[1] + m[3]) / 2.0 * fh;
-                (my - cy).abs() < 0.5 * h.max(mh) && (b[0] - m[2]) * fw < 1.5 * h.max(mh) && b[0] >= m[0]
+                (my - cy).abs() < 0.5 * h.max(mh)
+                    && (b[0] - m[2]) * fw < 1.5 * h.max(mh)
+                    && b[0] >= m[0]
             }) {
                 Some((m, mt)) => {
                     m[2] = m[2].max(b[2]);
@@ -698,7 +1078,11 @@ pub fn extract_from_scan(work: &Path, game_dir: &Path, video: &Path, id: &str, d
                 None => merged.push((b, t.to_string())),
             }
         }
-        lines[f] = merged.iter().map(|(_, t)| tokens(t)).filter(|t| !t.is_empty()).collect();
+        lines[f] = merged
+            .iter()
+            .map(|(_, t)| tokens(t))
+            .filter(|t| !t.is_empty())
+            .collect();
     }
     // text that stays on screen (a mode name like KILL CONFIRMED) doesn't make a frame "busy"
     let mut freq: std::collections::HashMap<Vec<String>, usize> = std::collections::HashMap::new();
@@ -714,7 +1098,8 @@ pub fn extract_from_scan(work: &Path, game_dir: &Path, video: &Path, id: &str, d
     for f in 0..n {
         let mut best: Option<&(String, Vec<String>)> = None;
         for l in &lines[f] {
-            if l.iter().any(|w| all_words.contains(w)) && freq.get(l).copied().unwrap_or(0) * 10 < n {
+            if l.iter().any(|w| all_words.contains(w)) && freq.get(l).copied().unwrap_or(0) * 10 < n
+            {
                 has_word[f] = true;
             }
             for dt in &dets {
@@ -725,7 +1110,15 @@ pub fn extract_from_scan(work: &Path, game_dir: &Path, video: &Path, id: &str, d
         }
         label[f] = best.map(|b| b.0.clone());
     }
-    let stem: String = video.file_stem().map(|s| s.to_string_lossy().chars().filter(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '-').collect()).unwrap_or_default();
+    let stem: String = video
+        .file_stem()
+        .map(|s| {
+            s.to_string_lossy()
+                .chars()
+                .filter(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '-')
+                .collect()
+        })
+        .unwrap_or_default();
     let locked_now = trusted(ds);
     // replace this video's earlier automatic pictures (not ones locked as sorted by hand)
     if let Ok(rd) = std::fs::read_dir(ds) {
@@ -742,7 +1135,10 @@ pub fn extract_from_scan(work: &Path, game_dir: &Path, video: &Path, id: &str, d
     let (mut pos, mut neg, mut quiet) = (0, 0, 0usize);
     // what the scan's text said for each picture, so check 1 can be applied again later
     let scan_p = ds.join(".scan.json");
-    let mut scan_labels: std::collections::HashMap<String, String> = std::fs::read(&scan_p).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
+    let mut scan_labels: std::collections::HashMap<String, String> = std::fs::read(&scan_p)
+        .ok()
+        .and_then(|b| serde_json::from_slice(&b).ok())
+        .unwrap_or_default();
     scan_labels.retain(|k, _| !k.starts_with(&format!("{stem}_")));
     for f in 0..n {
         let near_event = (f.saturating_sub(3)..(f + 4).min(n)).any(|k| has_word[k]);
@@ -767,7 +1163,11 @@ pub fn extract_from_scan(work: &Path, game_dir: &Path, video: &Path, id: &str, d
         if lab != "nothing" {
             scan_labels.insert(format!("{stem}_{f:06}.jpg"), lab.clone());
         }
-        if lab == "nothing" { neg += 1 } else { pos += 1 }
+        if lab == "nothing" {
+            neg += 1
+        } else {
+            pos += 1
+        }
     }
     std::fs::write(&scan_p, serde_json::to_vec(&scan_labels)?)?;
     Ok((pos, neg))
@@ -776,7 +1176,10 @@ pub fn extract_from_scan(work: &Path, game_dir: &Path, video: &Path, id: &str, d
 /// event name + phrase (as words) for every detector in the game's settings
 fn detector_phrases(game_dir: &Path) -> Result<Vec<(String, Vec<String>)>> {
     let lua = std::fs::read_to_string(game_dir.join("game_postprocess.lua"))?;
-    let re = regex::Regex::new(r#"event\s*=\s*"([^"]+)"\s*,\s*crop\s*=\s*"[^"]*"\s*,\s*match\s*=\s*\{([^}]*)\}"#).unwrap();
+    let re = regex::Regex::new(
+        r#"event\s*=\s*"([^"]+)"\s*,\s*crop\s*=\s*"[^"]*"\s*,\s*match\s*=\s*\{([^}]*)\}"#,
+    )
+    .unwrap();
     let mut dets: Vec<(String, Vec<String>)> = Vec::new();
     for c in re.captures_iter(&lua) {
         for w in c[2].split('"').skip(1).step_by(2) {
@@ -798,7 +1201,9 @@ fn line_words(mut boxes: Vec<([f32; 4], String)>) -> Vec<([f32; 4], Vec<String>)
         let cy = (b[1] + b[3]) / 2.0;
         match merged.iter_mut().find(|(m, _)| {
             let mh = m[3] - m[1];
-            ((m[1] + m[3]) / 2.0 - cy).abs() < 0.5 * h.max(mh) && b[0] - m[2] < 1.5 * h.max(mh) && b[0] >= m[0]
+            ((m[1] + m[3]) / 2.0 - cy).abs() < 0.5 * h.max(mh)
+                && b[0] - m[2] < 1.5 * h.max(mh)
+                && b[0] >= m[0]
         }) {
             Some((m, mt)) => {
                 m[2] = m[2].max(b[2]);
@@ -810,21 +1215,37 @@ fn line_words(mut boxes: Vec<([f32; 4], String)>) -> Vec<([f32; 4], Vec<String>)
             None => merged.push((b, t)),
         }
     }
-    merged.iter().map(|(b, t)| (*b, crate::discover::tokens(t))).filter(|t| !t.1.is_empty()).collect()
+    merged
+        .iter()
+        .map(|(b, t)| (*b, crate::discover::tokens(t)))
+        .filter(|t| !t.1.is_empty())
+        .collect()
 }
 
 /// SECOND CHECK of the training pictures: every picture is read again with OCR and must show its
 /// folder's event. Pictures showing another event move to that event's folder; event pictures
 /// with no readable event text move to <ID>_review (not used for training) so nothing wrong is
 /// learned. Results are remembered, so each picture is only checked once.
-pub fn verify(id: &str, game_dir: &Path, ds: &Path, ocr: &mut crate::ocr::Ocr, crops: &[crate::lua_engine::CropSpec]) -> Result<(usize, usize, usize)> {
+pub fn verify(
+    id: &str,
+    game_dir: &Path,
+    ds: &Path,
+    ocr: &mut crate::ocr::Ocr,
+    crops: &[crate::lua_engine::CropSpec],
+) -> Result<(usize, usize, usize)> {
     let dets = detector_phrases(game_dir)?;
     let cache_p = ds.join(".verified.json");
-    let mut done: std::collections::HashMap<String, serde_json::Value> = std::fs::read(&cache_p).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
+    let mut done: std::collections::HashMap<String, serde_json::Value> = std::fs::read(&cache_p)
+        .ok()
+        .and_then(|b| serde_json::from_slice(&b).ok())
+        .unwrap_or_default();
     let (mut ok, mut moved, mut review) = (0, 0, 0);
     let prefix = format!("{id}_");
     let mut todo: Vec<(String, PathBuf)> = Vec::new();
-    for e in std::fs::read_dir(ds)?.flatten().filter(|e| e.path().is_dir()) {
+    for e in std::fs::read_dir(ds)?
+        .flatten()
+        .filter(|e| e.path().is_dir())
+    {
         let name = e.file_name().to_string_lossy().to_string();
         let cls = name.strip_prefix(&prefix).unwrap_or(&name).to_string();
         if cls == "review" {
@@ -833,15 +1254,30 @@ pub fn verify(id: &str, game_dir: &Path, ds: &Path, ocr: &mut crate::ocr::Ocr, c
         for f in std::fs::read_dir(e.path())?.flatten() {
             let p = f.path();
             let key = format!("{name}/{}", f.file_name().to_string_lossy());
-            if done.contains_key(&key) || !matches!(p.extension().and_then(|x| x.to_str()).map(|s| s.to_ascii_lowercase()).as_deref(), Some("jpg" | "jpeg" | "png" | "webp")) {
+            if done.contains_key(&key)
+                || !matches!(
+                    p.extension()
+                        .and_then(|x| x.to_str())
+                        .map(|s| s.to_ascii_lowercase())
+                        .as_deref(),
+                    Some("jpg" | "jpeg" | "png" | "webp")
+                )
+            {
                 continue;
             }
             todo.push((cls.clone(), p));
         }
     }
     let locked = trusted(ds);
-    todo.retain(|(_, p)| !p.file_name().map(|f| locked.contains(&*f.to_string_lossy())).unwrap_or(false));
-    let scan: std::collections::HashMap<String, String> = std::fs::read(ds.join(".scan.json")).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
+    todo.retain(|(_, p)| {
+        !p.file_name()
+            .map(|f| locked.contains(&*f.to_string_lossy()))
+            .unwrap_or(false)
+    });
+    let scan: std::collections::HashMap<String, String> = std::fs::read(ds.join(".scan.json"))
+        .ok()
+        .and_then(|b| serde_json::from_slice(&b).ok())
+        .unwrap_or_default();
     let total = todo.len();
     for (i, (cls, p)) in todo.into_iter().enumerate() {
         if i % 50 == 0 && total > 0 {
@@ -853,16 +1289,38 @@ pub fn verify(id: &str, game_dir: &Path, ds: &Path, ocr: &mut crate::ocr::Ocr, c
         for c in crops {
             let (x, y, _, _) = crate::ocr::crop_rect(img.width(), img.height(), &c.coords);
             if let Ok(r) = ocr.run_crop(&img, c) {
-                boxes.extend(r.boxes.into_iter().map(|b| ([(b.x0 + x) as f32, (b.y0 + y) as f32, (b.x1 + x) as f32, (b.y1 + y) as f32], b.text)));
+                boxes.extend(r.boxes.into_iter().map(|b| {
+                    (
+                        [
+                            (b.x0 + x) as f32,
+                            (b.y0 + y) as f32,
+                            (b.x1 + x) as f32,
+                            (b.y1 + y) as f32,
+                        ],
+                        b.text,
+                    )
+                }));
             }
         }
         let lines = line_words(boxes);
-        let mut found: Vec<&(String, Vec<String>)> = dets.iter().filter(|d| lines.iter().any(|l| l.1 == d.1)).collect();
+        let mut found: Vec<&(String, Vec<String>)> = dets
+            .iter()
+            .filter(|d| lines.iter().any(|l| l.1 == d.1))
+            .collect();
         found.sort_by(|a, b| b.1.len().cmp(&a.1.len()));
         // where on screen the event's text was (for the fourth check)
         let (iw, ih) = (img.width() as f32, img.height() as f32);
         let place = |ev: &str| -> serde_json::Value {
-            dets.iter().filter(|d| d.0 == ev).find_map(|d| lines.iter().find(|l| l.1 == d.1)).map(|l| serde_json::json!([((l.0[0] + l.0[2]) / 2.0 / iw), ((l.0[1] + l.0[3]) / 2.0 / ih)])).unwrap_or(serde_json::json!(true))
+            dets.iter()
+                .filter(|d| d.0 == ev)
+                .find_map(|d| lines.iter().find(|l| l.1 == d.1))
+                .map(|l| {
+                    serde_json::json!([
+                        ((l.0[0] + l.0[2]) / 2.0 / iw),
+                        ((l.0[1] + l.0[3]) / 2.0 / ih)
+                    ])
+                })
+                .unwrap_or(serde_json::json!(true))
         };
         let target = if found.iter().any(|d| d.0 == cls) {
             None
@@ -870,7 +1328,11 @@ pub fn verify(id: &str, game_dir: &Path, ds: &Path, ocr: &mut crate::ocr::Ocr, c
             Some(best.0.clone())
         } else if cls == "nothing" {
             None
-        } else if scan.get(&*p.file_name().unwrap().to_string_lossy()).map(|l| *l == cls).unwrap_or(false) {
+        } else if scan
+            .get(&*p.file_name().unwrap().to_string_lossy())
+            .map(|l| *l == cls)
+            .unwrap_or(false)
+        {
             // the scan already read this event's text here (the saved picture is smaller, so OCR
             // can miss small text now): no contradiction, keep it
             None
@@ -884,10 +1346,16 @@ pub fn verify(id: &str, game_dir: &Path, ds: &Path, ocr: &mut crate::ocr::Ocr, c
                 done.insert(format!("{prefix}{cls}/{fname}"), place(&cls));
             }
             Some(t) => {
-                let dir = ds.join(format!("{prefix}{t}"));
-                std::fs::create_dir_all(&dir)?;
-                std::fs::rename(&p, dir.join(&fname))?;
-                if t == "review" { review += 1 } else { moved += 1; done.insert(format!("{prefix}{t}/{fname}"), place(&t)); }
+                if t == "review" {
+                    to_review(id, ds, &p, "check 2")?;
+                    review += 1;
+                } else {
+                    let dir = ds.join(format!("{prefix}{t}"));
+                    std::fs::create_dir_all(&dir)?;
+                    std::fs::rename(&p, dir.join(&fname))?;
+                    moved += 1;
+                    done.insert(format!("{prefix}{t}/{fname}"), place(&t));
+                }
             }
         }
         if i % 50 == 49 {
@@ -905,9 +1373,24 @@ pub fn verify(id: &str, game_dir: &Path, ds: &Path, ocr: &mut crate::ocr::Ocr, c
 /// Each event's detector areas (crop rectangles) from the game's settings.
 pub fn detector_areas(game_dir: &Path) -> std::collections::HashMap<String, Vec<[f32; 4]>> {
     let mut out: std::collections::HashMap<String, Vec<[f32; 4]>> = Default::default();
-    let Ok(lua) = std::fs::read_to_string(game_dir.join("game_postprocess.lua")) else { return out };
+    let Ok(lua) = std::fs::read_to_string(game_dir.join("game_postprocess.lua")) else {
+        return out;
+    };
     let crop_re = regex::Regex::new(r#"cropName\s*=\s*"([^"]+)"[^}]*?cropCoords\s*=\s*\{\s*([0-9.]+)\s*,\s*([0-9.]+)\s*,\s*([0-9.]+)\s*,\s*([0-9.]+)"#).unwrap();
-    let crops: std::collections::HashMap<String, [f32; 4]> = crop_re.captures_iter(&lua).map(|c| (c[1].to_string(), [c[2].parse().unwrap_or(0.0), c[3].parse().unwrap_or(0.0), c[4].parse().unwrap_or(1.0), c[5].parse().unwrap_or(1.0)])).collect();
+    let crops: std::collections::HashMap<String, [f32; 4]> = crop_re
+        .captures_iter(&lua)
+        .map(|c| {
+            (
+                c[1].to_string(),
+                [
+                    c[2].parse().unwrap_or(0.0),
+                    c[3].parse().unwrap_or(0.0),
+                    c[4].parse().unwrap_or(1.0),
+                    c[5].parse().unwrap_or(1.0),
+                ],
+            )
+        })
+        .collect();
     let det_re = regex::Regex::new(r#"event\s*=\s*"([^"]+)"\s*,\s*crop\s*=\s*"([^"]+)""#).unwrap();
     for c in det_re.captures_iter(&lua) {
         if let Some(r) = crops.get(&c[2]) {
@@ -920,41 +1403,57 @@ pub fn detector_areas(game_dir: &Path) -> std::collections::HashMap<String, Vec<
     out
 }
 
-pub fn location_check_in(id: &str, ds: &Path, areas: &std::collections::HashMap<String, Vec<[f32; 4]>>) -> Result<usize> {
+pub fn location_check_in(
+    id: &str,
+    ds: &Path,
+    areas: &std::collections::HashMap<String, Vec<[f32; 4]>>,
+) -> Result<usize> {
     let locked = trusted(ds);
     let cache_p = ds.join(".verified.json");
-    let done: std::collections::HashMap<String, serde_json::Value> = std::fs::read(&cache_p).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
-    let mut by_class: std::collections::BTreeMap<String, Vec<(PathBuf, f32, f32)>> = Default::default();
+    let done: std::collections::HashMap<String, serde_json::Value> = std::fs::read(&cache_p)
+        .ok()
+        .and_then(|b| serde_json::from_slice(&b).ok())
+        .unwrap_or_default();
+    // grouped by event and video: each video can have its own screen layout
+    let mut by_class: std::collections::BTreeMap<(String, String), Vec<(PathBuf, f32, f32)>> =
+        Default::default();
     for (key, v) in &done {
-        let (Some(cx), Some(cy)) = (v.get(0).and_then(|x| x.as_f64()), v.get(1).and_then(|x| x.as_f64())) else { continue };
+        let (Some(cx), Some(cy)) = (
+            v.get(0).and_then(|x| x.as_f64()),
+            v.get(1).and_then(|x| x.as_f64()),
+        ) else {
+            continue;
+        };
         let p = ds.join(key);
         if !p.exists() || locked.contains(key.rsplit('/').next().unwrap_or("")) {
             continue;
         }
         let cls = key.split('/').next().unwrap_or("").to_string();
-        by_class.entry(cls).or_default().push((p, cx as f32, cy as f32));
+        let video = video_of(key.rsplit('/').next().unwrap_or("")).to_string();
+        by_class
+            .entry((cls, video))
+            .or_default()
+            .push((p, cx as f32, cy as f32));
     }
-    let review = ds.join(format!("{id}_review"));
     let mut moved = 0;
     let mut all: Vec<(usize, f32, f32)> = Vec::new();
     let mut files: Vec<PathBuf> = Vec::new();
     let mut class_areas: Vec<Vec<[f32; 4]>> = Vec::new();
-    for (ci, (cls, items)) in by_class.into_iter().enumerate() {
-        class_areas.push(areas.get(cls.strip_prefix(&format!("{id}_")).unwrap_or(&cls)).cloned().unwrap_or_default());
+    for (ci, ((cls, _), items)) in by_class.into_iter().enumerate() {
+        class_areas.push(
+            areas
+                .get(cls.strip_prefix(&format!("{id}_")).unwrap_or(&cls))
+                .cloned()
+                .unwrap_or_default(),
+        );
         for (p, x, y) in items {
             all.push((ci, x, y));
             files.push(p);
         }
     }
-    let far = location_flags_in(&all, &class_areas);
-    if !far.is_empty() {
-        std::fs::create_dir_all(&review)?;
-    }
-    for i in far {
-        if let Some(f) = files[i].file_name() {
-            if std::fs::rename(&files[i], review.join(f)).is_ok() {
-                moved += 1;
-            }
+    for i in location_flags_in(&all, &class_areas) {
+        if to_review(id, ds, &files[i], "check 4").is_ok() {
+            moved += 1;
         }
     }
     Ok(moved)
@@ -971,16 +1470,52 @@ mod location_tests {
         let mut done = serde_json::Map::new();
         for i in 0..20 {
             std::fs::write(k.join(format!("a{i}.jpg")), b"x").unwrap();
-            done.insert(format!("G_kill/a{i}.jpg"), serde_json::json!([0.5 + (i as f32) * 0.002, 0.45]));
+            done.insert(
+                format!("G_kill/a{i}.jpg"),
+                serde_json::json!([0.5 + (i as f32) * 0.002, 0.45]),
+            );
         }
         for i in 0..3 {
             std::fs::write(k.join(format!("far{i}.jpg")), b"x").unwrap();
             done.insert(format!("G_kill/far{i}.jpg"), serde_json::json!([0.05, 0.1]));
         }
-        std::fs::write(ds.join(".verified.json"), serde_json::to_vec(&done).unwrap()).unwrap();
-        assert_eq!(super::location_check_in("G", &ds, &Default::default()).unwrap(), 3);
+        std::fs::write(
+            ds.join(".verified.json"),
+            serde_json::to_vec(&done).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            super::location_check_in("G", &ds, &Default::default()).unwrap(),
+            3
+        );
         assert!(ds.join("G_review/far0.jpg").exists());
         assert!(k.join("a0.jpg").exists());
+    }
+
+    #[test]
+    fn other_layout_kept() {
+        // an event's text sits elsewhere in one video (another HUD layout): kept; a stray one in
+        // the layout the areas fit: moved
+        let a = vec![
+            vec![[0.27f32, 0.02, 0.34, 0.07]],
+            vec![[0.27f32, 0.02, 0.34, 0.07]],
+        ];
+        let mut items = Vec::new();
+        for i in 0..12 {
+            items.push((0usize, 0.3 + i as f32 * 0.001, 0.05))
+        }
+        items.push((0, 0.6, 0.47));
+        for _ in 0..8 {
+            items.push((1usize, 0.5, 0.23))
+        }
+        assert_eq!(super::location_flags_in(&items, &a), vec![12]);
+    }
+
+    #[test]
+    fn names() {
+        assert!(super::scan_named("youtube-6f18_000123.jpg"));
+        assert!(!super::scan_named("mine.jpg"));
+        assert_eq!(super::video_of("Powder2026_000003.jpg"), "Powder2026");
     }
 }
 
@@ -995,10 +1530,25 @@ pub struct SimItem {
 }
 
 /// Read every pool picture once: image features + what OCR reads (exact event phrase and where).
-pub fn sim_prepare(dir: &Path, phrases: &[(String, Vec<String>)], ocr: &mut crate::ocr::Ocr) -> Result<Vec<SimItem>> {
-    let manifest: Vec<serde_json::Value> = serde_json::from_slice(&std::fs::read(dir.join("pool.json"))?)?;
+pub fn sim_prepare(
+    dir: &Path,
+    phrases: &[(String, Vec<String>)],
+    ocr: &mut crate::ocr::Ocr,
+) -> Result<Vec<SimItem>> {
+    let manifest: Vec<serde_json::Value> =
+        serde_json::from_slice(&std::fs::read(dir.join("pool.json"))?)?;
     let mut ex = Extractor::best();
-    let crop = crate::lua_engine::CropSpec { name: "All".into(), coords: [0.0, 0.0, 1.0, 1.0], dilate_diameter: 5, min_area: 40, margin: 8, stretch_vertical: false, restricted_chars: String::new(), debug: false, legacy: false };
+    let crop = crate::lua_engine::CropSpec {
+        name: "All".into(),
+        coords: [0.0, 0.0, 1.0, 1.0],
+        dilate_diameter: 5,
+        min_area: 40,
+        margin: 8,
+        stretch_vertical: false,
+        restricted_chars: String::new(),
+        debug: false,
+        legacy: false,
+    };
     let mut out = Vec::new();
     for (i, m) in manifest.iter().enumerate() {
         if i % 100 == 0 {
@@ -1006,18 +1556,42 @@ pub fn sim_prepare(dir: &Path, phrases: &[(String, Vec<String>)], ocr: &mut crat
         }
         let img = image::open(dir.join(m["file"].as_str().unwrap_or("")))?.to_rgb8();
         let r = ocr.run_crop(&img, &crop)?;
-        let lines = line_words(r.boxes.into_iter().map(|b| ([b.x0 as f32, b.y0 as f32, b.x1 as f32, b.y1 as f32], b.text)).collect());
+        let lines = line_words(
+            r.boxes
+                .into_iter()
+                .map(|b| ([b.x0 as f32, b.y0 as f32, b.x1 as f32, b.y1 as f32], b.text))
+                .collect(),
+        );
         let mut text = None;
         let mut loc = None;
         for (ev, ph) in phrases {
             if let Some(l) = lines.iter().find(|l| &l.1 == ph) {
-                if text.as_ref().map(|t: &String| phrases.iter().find(|p| &p.0 == t).map(|p| p.1.len()).unwrap_or(0) < ph.len()).unwrap_or(true) {
+                if text
+                    .as_ref()
+                    .map(|t: &String| {
+                        phrases
+                            .iter()
+                            .find(|p| &p.0 == t)
+                            .map(|p| p.1.len())
+                            .unwrap_or(0)
+                            < ph.len()
+                    })
+                    .unwrap_or(true)
+                {
                     text = Some(ev.clone());
-                    loc = Some(((l.0[0] + l.0[2]) / 2.0 / img.width() as f32, (l.0[1] + l.0[3]) / 2.0 / img.height() as f32));
+                    loc = Some((
+                        (l.0[0] + l.0[2]) / 2.0 / img.width() as f32,
+                        (l.0[1] + l.0[3]) / 2.0 / img.height() as f32,
+                    ));
                 }
             }
         }
-        out.push(SimItem { truth: m["truth"].as_str().unwrap_or("").into(), text, loc, feat: ex.features(&img)? });
+        out.push(SimItem {
+            truth: m["truth"].as_str().unwrap_or("").into(),
+            text,
+            loc,
+            feat: ex.features(&img)?,
+        });
     }
     Ok(out)
 }
@@ -1033,21 +1607,50 @@ pub fn sim_neighbours(pool: &[SimItem]) -> Vec<Vec<u32>> {
     let d = pool[0].feat.len();
     let mut mean = vec![0f32; d];
     let mut sd = vec![0f32; d];
-    for it in pool { for j in 0..d { mean[j] += it.feat[j] / n as f32 } }
-    for it in pool { for j in 0..d { sd[j] += (it.feat[j] - mean[j]).powi(2) / n as f32 } }
-    for v in sd.iter_mut() { *v = v.sqrt().max(1e-3) }
-    let xs: Vec<Vec<f32>> = pool.iter().map(|it| { let v: Vec<f32> = (0..d).map(|j| (it.feat[j] - mean[j]) / sd[j]).collect(); let nn = v.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-6); v.iter().map(|x| x / nn).collect() }).collect();
+    for it in pool {
+        for j in 0..d {
+            mean[j] += it.feat[j] / n as f32
+        }
+    }
+    for it in pool {
+        for j in 0..d {
+            sd[j] += (it.feat[j] - mean[j]).powi(2) / n as f32
+        }
+    }
+    for v in sd.iter_mut() {
+        *v = v.sqrt().max(1e-3)
+    }
+    let xs: Vec<Vec<f32>> = pool
+        .iter()
+        .map(|it| {
+            let v: Vec<f32> = (0..d).map(|j| (it.feat[j] - mean[j]) / sd[j]).collect();
+            let nn = v.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-6);
+            v.iter().map(|x| x / nn).collect()
+        })
+        .collect();
     let rows: Vec<Vec<u32>> = std::thread::scope(|sc| {
         let half = n / 2;
         let xs = &xs;
-        let job = |a: usize, b: usize| move || -> Vec<Vec<u32>> {
-            (a..b).map(|i| {
-                let mut sims: Vec<(f32, u32)> = (0..n).filter(|&j| j != i).map(|j| (xs[i].iter().zip(&xs[j]).map(|(x, y)| x * y).sum::<f32>(), j as u32)).collect();
-                sims.select_nth_unstable_by(60, |a, b| b.0.total_cmp(&a.0));
-                let mut top: Vec<(f32, u32)> = sims.into_iter().take(61).collect();
-                top.sort_by(|a, b| b.0.total_cmp(&a.0));
-                top.into_iter().take(60).map(|x| x.1).collect()
-            }).collect()
+        let job = |a: usize, b: usize| {
+            move || -> Vec<Vec<u32>> {
+                (a..b)
+                    .map(|i| {
+                        let mut sims: Vec<(f32, u32)> = (0..n)
+                            .filter(|&j| j != i)
+                            .map(|j| {
+                                (
+                                    xs[i].iter().zip(&xs[j]).map(|(x, y)| x * y).sum::<f32>(),
+                                    j as u32,
+                                )
+                            })
+                            .collect();
+                        sims.select_nth_unstable_by(60, |a, b| b.0.total_cmp(&a.0));
+                        let mut top: Vec<(f32, u32)> = sims.into_iter().take(61).collect();
+                        top.sort_by(|a, b| b.0.total_cmp(&a.0));
+                        top.into_iter().take(60).map(|x| x.1).collect()
+                    })
+                    .collect()
+            }
         };
         let h1 = sc.spawn(job(0, half));
         let h2 = sc.spawn(job(half, n));
@@ -1058,14 +1661,35 @@ pub fn sim_neighbours(pool: &[SimItem]) -> Vec<Vec<u32>> {
     rows
 }
 
-pub fn sim_run(pool: &[SimItem], classes: &[String], mistakes: usize, good: usize, order: &[u8], seed: u64) -> [usize; 6] {
+pub fn sim_run(
+    pool: &[SimItem],
+    classes: &[String],
+    mistakes: usize,
+    good: usize,
+    order: &[u8],
+    seed: u64,
+) -> [usize; 6] {
     sim_run_fast(pool, None, &[], classes, mistakes, good, order, seed)
 }
 
 /// `nbrs` = sim_neighbours (fast look-alike check), `areas[class]` = detector areas.
-pub fn sim_run_fast(pool: &[SimItem], nbrs: Option<&[Vec<u32>]>, areas: &[Vec<[f32; 4]>], classes: &[String], mistakes: usize, good: usize, order: &[u8], seed: u64) -> [usize; 6] {
+pub fn sim_run_fast(
+    pool: &[SimItem],
+    nbrs: Option<&[Vec<u32>]>,
+    areas: &[Vec<[f32; 4]>],
+    classes: &[String],
+    mistakes: usize,
+    good: usize,
+    order: &[u8],
+    seed: u64,
+) -> [usize; 6] {
     let mut rng = seed.wrapping_mul(0x9e3779b97f4a7c15) | 1;
-    let mut next = move || { rng ^= rng << 13; rng ^= rng >> 7; rng ^= rng << 17; rng };
+    let mut next = move || {
+        rng ^= rng << 13;
+        rng ^= rng >> 7;
+        rng ^= rng << 17;
+        rng
+    };
     let mut idx: Vec<usize> = (0..pool.len()).collect();
     for i in (1..idx.len()).rev() {
         let j = (next() % (i as u64 + 1)) as usize;
@@ -1075,9 +1699,21 @@ pub fn sim_run_fast(pool: &[SimItem], nbrs: Option<&[Vec<u32>]>, areas: &[Vec<[f
     let ci = |s: &str| classes.iter().position(|c| c == s).unwrap_or(0);
     let truth: Vec<usize> = pick.iter().map(|&p| ci(&pool[p].truth)).collect();
     // folder per picture (None = review); the first `mistakes` get a wrong folder
-    let mut folder: Vec<Option<usize>> = truth.iter().enumerate().map(|(i, &t)| {
-        if i < mistakes { let mut w = (next() as usize) % (classes.len() - 1); if w >= t { w += 1 } Some(w) } else { Some(t) }
-    }).collect();
+    let mut folder: Vec<Option<usize>> = truth
+        .iter()
+        .enumerate()
+        .map(|(i, &t)| {
+            if i < mistakes {
+                let mut w = (next() as usize) % (classes.len() - 1);
+                if w >= t {
+                    w += 1
+                }
+                Some(w)
+            } else {
+                Some(t)
+            }
+        })
+        .collect();
     let nothing = ci("nothing");
     // features normalised like training does
     let d = pool[0].feat.len();
@@ -1085,58 +1721,125 @@ pub fn sim_run_fast(pool: &[SimItem], nbrs: Option<&[Vec<u32>]>, areas: &[Vec<[f
     let n = xs.len();
     let mut mean = vec![0f32; d];
     let mut sd = vec![0f32; d];
-    for x in &xs { for j in 0..d { mean[j] += x[j] / n as f32 } }
-    for x in &xs { for j in 0..d { sd[j] += (x[j] - mean[j]).powi(2) / n as f32 } }
-    for v in sd.iter_mut() { *v = v.sqrt().max(1e-3) }
-    for x in xs.iter_mut() { for j in 0..d { x[j] = (x[j] - mean[j]) / sd[j] } }
+    for x in &xs {
+        for j in 0..d {
+            mean[j] += x[j] / n as f32
+        }
+    }
+    for x in &xs {
+        for j in 0..d {
+            sd[j] += (x[j] - mean[j]).powi(2) / n as f32
+        }
+    }
+    for v in sd.iter_mut() {
+        *v = v.sqrt().max(1e-3)
+    }
+    for x in xs.iter_mut() {
+        for j in 0..d {
+            x[j] = (x[j] - mean[j]) / sd[j]
+        }
+    }
     let mut confirmed = vec![false; n];
     for &f in order {
         let live: Vec<usize> = (0..n).filter(|&i| folder[i].is_some()).collect();
         match f {
-            1 => for &i in &live { if let Some(t) = &pool[pick[i]].text { folder[i] = Some(ci(t)) } },
-            2 => for &i in &live {
-                match &pool[pick[i]].text {
-                    Some(t) if Some(ci(t)) == folder[i] => confirmed[i] = true,
-                    Some(t) => { folder[i] = Some(ci(t)); confirmed[i] = true }
-                    None if folder[i] == Some(nothing) => {}
-                    None => folder[i] = None,
+            1 => {
+                for &i in &live {
+                    if let Some(t) = &pool[pick[i]].text {
+                        folder[i] = Some(ci(t))
+                    }
                 }
-            },
+            }
+            2 => {
+                for &i in &live {
+                    match &pool[pick[i]].text {
+                        Some(t) if Some(ci(t)) == folder[i] => confirmed[i] = true,
+                        Some(t) => {
+                            folder[i] = Some(ci(t));
+                            confirmed[i] = true
+                        }
+                        None if folder[i] == Some(nothing) => {}
+                        None => folder[i] = None,
+                    }
+                }
+            }
             3 if nbrs.is_some() => {
                 let nb = nbrs.unwrap();
                 let mut run_of = vec![usize::MAX; pool.len()];
-                for &i in &live { run_of[pick[i]] = i }
+                for &i in &live {
+                    run_of[pick[i]] = i
+                }
                 let mut count = vec![0usize; classes.len()];
-                for &i in &live { count[folder[i].unwrap()] += 1 }
+                for &i in &live {
+                    count[folder[i].unwrap()] += 1
+                }
                 let mut fl = Vec::new();
                 for &i in &live {
                     let y = folder[i].unwrap();
-                    if count[y] < 15 { continue }
+                    if count[y] < 15 {
+                        continue;
+                    }
                     let mut votes = vec![0usize; classes.len()];
                     let mut taken = 0;
                     for &j in &nb[pick[i]] {
                         let r = run_of[j as usize];
-                        if r == usize::MAX || r == i { continue }
+                        if r == usize::MAX || r == i {
+                            continue;
+                        }
                         votes[folder[r].unwrap()] += 1;
                         taken += 1;
-                        if taken == 7 { break }
+                        if taken == 7 {
+                            break;
+                        }
                     }
-                    let (best, nbv) = votes.iter().enumerate().max_by_key(|x| *x.1).map(|(c, v)| (c, *v)).unwrap();
-                    if best != y && nbv >= 5 && votes[y] <= 1 { fl.push(i) }
+                    let (best, nbv) = votes
+                        .iter()
+                        .enumerate()
+                        .max_by_key(|x| *x.1)
+                        .map(|(c, v)| (c, *v))
+                        .unwrap();
+                    if best != y && nbv >= 5 && votes[y] <= 1 {
+                        fl.push(i)
+                    }
                 }
-                for i in fl { folder[i] = None }
+                for i in fl {
+                    folder[i] = None
+                }
             }
             3 | 5 => {
                 let sx: Vec<Vec<f32>> = live.iter().map(|&i| xs[i].clone()).collect();
                 let sy: Vec<usize> = live.iter().map(|&i| folder[i].unwrap()).collect();
-                let fl = if f == 3 { knn_flags(&sx, &sy, classes.len()) } else { cl_flags(&sx, &sy, classes.len(), d) };
-                for k in fl { folder[live[k]] = None }
+                let fl = if f == 3 {
+                    knn_flags(&sx, &sy, classes.len())
+                } else {
+                    cl_flags(&sx, &sy, classes.len(), d)
+                };
+                for k in fl {
+                    folder[live[k]] = None
+                }
             }
             4 => {
                 // positions are known for pictures whose text was read in check 2 (or check 1)
-                let with: Vec<usize> = live.iter().copied().filter(|&i| pool[pick[i]].loc.is_some() && (confirmed[i] || order.iter().position(|&o| o == 2) < order.iter().position(|&o| o == 4))).collect();
-                let items: Vec<(usize, f32, f32)> = with.iter().map(|&i| { let l = pool[pick[i]].loc.unwrap(); (folder[i].unwrap(), l.0, l.1) }).collect();
-                for k in location_flags_in(&items, areas) { folder[with[k]] = None }
+                let with: Vec<usize> = live
+                    .iter()
+                    .copied()
+                    .filter(|&i| {
+                        pool[pick[i]].loc.is_some()
+                            && (confirmed[i]
+                                || order.iter().position(|&o| o == 2)
+                                    < order.iter().position(|&o| o == 4))
+                    })
+                    .collect();
+                let items: Vec<(usize, f32, f32)> = with
+                    .iter()
+                    .map(|&i| {
+                        let l = pool[pick[i]].loc.unwrap();
+                        (folder[i].unwrap(), l.0, l.1)
+                    })
+                    .collect();
+                for k in location_flags_in(&items, areas) {
+                    folder[with[k]] = None
+                }
             }
             _ => {}
         }
@@ -1144,7 +1847,11 @@ pub fn sim_run_fast(pool: &[SimItem], nbrs: Option<&[Vec<u32>]>, areas: &[Vec<[f
     let mut r = [0usize; 6];
     for i in 0..n {
         let m = i < mistakes;
-        let slot = match folder[i] { None => 1, Some(f) if f == truth[i] => 0, Some(_) => 2 };
+        let slot = match folder[i] {
+            None => 1,
+            Some(f) if f == truth[i] => 0,
+            Some(_) => 2,
+        };
         r[if m { slot } else { 3 + slot }] += 1;
     }
     r
@@ -1153,11 +1860,17 @@ pub fn sim_run_fast(pool: &[SimItem], nbrs: Option<&[Vec<u32>]>, areas: &[Vec<[f
 /// Check 1 applied again (it runs in 4th place): a picture whose scan text named a different event
 /// than the folder it's in now goes back to that event's folder. Pictures in review stay there.
 pub fn rescan_sort(id: &str, ds: &Path) -> Result<usize> {
-    let scan: std::collections::HashMap<String, String> = std::fs::read(ds.join(".scan.json")).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
+    let scan: std::collections::HashMap<String, String> = std::fs::read(ds.join(".scan.json"))
+        .ok()
+        .and_then(|b| serde_json::from_slice(&b).ok())
+        .unwrap_or_default();
     let locked = trusted(ds);
     let prefix = format!("{id}_");
     let mut moved = 0;
-    for e in std::fs::read_dir(ds)?.flatten().filter(|e| e.path().is_dir()) {
+    for e in std::fs::read_dir(ds)?
+        .flatten()
+        .filter(|e| e.path().is_dir())
+    {
         let name = e.file_name().to_string_lossy().to_string();
         let cls = name.strip_prefix(&prefix).unwrap_or(&name).to_string();
         if cls == "review" {
@@ -1183,7 +1896,109 @@ pub fn rescan_sort(id: &str, ds: &Path) -> Result<usize> {
 // ---------- pictures people sorted themselves ----------
 
 fn trusted(ds: &Path) -> std::collections::HashSet<String> {
-    std::fs::read(ds.join(".trusted.json")).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default()
+    std::fs::read(ds.join(".trusted.json"))
+        .ok()
+        .and_then(|b| serde_json::from_slice(&b).ok())
+        .unwrap_or_default()
+}
+
+/// What the scan's text said for each event picture (file name -> event).
+fn scan_labels(ds: &Path) -> std::collections::HashMap<String, String> {
+    std::fs::read(ds.join(".scan.json"))
+        .ok()
+        .and_then(|b| serde_json::from_slice(&b).ok())
+        .unwrap_or_default()
+}
+
+/// A picture the scan saved itself (named <video>_<frame number>.jpg).
+fn scan_named(fname: &str) -> bool {
+    let Some(s) = fname.strip_suffix(".jpg") else {
+        return false;
+    };
+    s.len() > 7
+        && s.as_bytes()[s.len() - 7] == b'_'
+        && s[s.len() - 6..].bytes().all(|b| b.is_ascii_digit())
+}
+
+/// The video a scan picture came from (its name without the frame number).
+fn video_of(fname: &str) -> &str {
+    if scan_named(fname) {
+        &fname[..fname.len() - 11]
+    } else {
+        ""
+    }
+}
+
+/// The scan's text backs the folder this picture is in: an event picture whose scan line was that
+/// event's exact words, or a "nothing" picture saved from a stretch with no event words nearby.
+/// The look-based checks (3 and 5) never overrule this: whole-frame looks can't see small text,
+/// and on a new video (other maps, another player's screen) they flagged hundreds of right ones.
+fn text_backed(
+    fname: &str,
+    folder: &str,
+    scan: &std::collections::HashMap<String, String>,
+) -> bool {
+    match scan.get(fname) {
+        Some(l) => l == folder,
+        None => folder == "nothing" && scan_named(fname),
+    }
+}
+
+/// Pictures the checks moved to <ID>_review (file name -> which check), so a later run can give
+/// them another chance with better checks without touching pictures someone put there by hand.
+fn review_log(ds: &Path) -> Option<std::collections::HashMap<String, String>> {
+    std::fs::read(ds.join(".review.json"))
+        .ok()
+        .and_then(|b| serde_json::from_slice(&b).ok())
+}
+
+fn to_review(id: &str, ds: &Path, from: &Path, why: &str) -> Result<()> {
+    let review = ds.join(format!("{id}_review"));
+    std::fs::create_dir_all(&review)?;
+    let fname = from
+        .file_name()
+        .map(|f| f.to_string_lossy().to_string())
+        .unwrap_or_default();
+    std::fs::rename(from, review.join(&fname))?;
+    let mut log = review_log(ds).unwrap_or_default();
+    log.insert(fname, why.into());
+    let _ = std::fs::write(ds.join(".review.json"), serde_json::to_vec(&log)?);
+    Ok(())
+}
+
+/// Before the checks run again: pictures a check put in review go back to the folder their scan
+/// text named (or "nothing"), and the checks judge them afresh. Pictures in review from before
+/// this log existed were all put there by checks, so they go back too (once). Locked pictures and
+/// pictures put in review by hand stay. Returns how many went back.
+pub fn return_reviewed(id: &str, ds: &Path) -> Result<usize> {
+    let review = ds.join(format!("{id}_review"));
+    let first = !ds.join(".review.json").exists();
+    let mut log = review_log(ds).unwrap_or_default();
+    let scan = scan_labels(ds);
+    let locked = trusted(ds);
+    let mut back = 0;
+    if let Ok(rd) = std::fs::read_dir(&review) {
+        for f in rd.flatten() {
+            let fname = f.file_name().to_string_lossy().to_string();
+            if locked.contains(&fname) || !(first || log.contains_key(&fname)) {
+                continue;
+            }
+            let to = match scan.get(&fname) {
+                Some(l) => l.clone(),
+                None if scan_named(&fname) => "nothing".into(),
+                None => continue,
+            };
+            let dir = ds.join(format!("{id}_{to}"));
+            std::fs::create_dir_all(&dir)?;
+            if std::fs::rename(f.path(), dir.join(&fname)).is_ok() {
+                log.remove(&fname);
+                back += 1;
+            }
+        }
+    }
+    log.retain(|f, _| review.join(f).exists());
+    std::fs::write(ds.join(".review.json"), serde_json::to_vec(&log)?)?;
+    Ok(back)
 }
 
 /// Undo the checks: every picture goes back to the folder it was in before they ran (taken from
@@ -1205,7 +2020,10 @@ pub fn restore_and_lock(id: &str, ds: &Path) -> Result<(usize, usize)> {
     }
     let mut moved = 0;
     let already = trusted(ds);
-    for e in std::fs::read_dir(ds)?.flatten().filter(|e| e.path().is_dir()) {
+    for e in std::fs::read_dir(ds)?
+        .flatten()
+        .filter(|e| e.path().is_dir())
+    {
         let dir = e.file_name().to_string_lossy().to_string();
         for f in std::fs::read_dir(e.path())?.flatten() {
             let fname = f.file_name().to_string_lossy().to_string();
@@ -1225,7 +2043,10 @@ pub fn restore_and_lock(id: &str, ds: &Path) -> Result<(usize, usize)> {
     // lock everything that's in an event / nothing folder now
     let mut lock = trusted(ds);
     let prefix = format!("{id}_");
-    for e in std::fs::read_dir(ds)?.flatten().filter(|e| e.path().is_dir()) {
+    for e in std::fs::read_dir(ds)?
+        .flatten()
+        .filter(|e| e.path().is_dir())
+    {
         let dir = e.file_name().to_string_lossy().to_string();
         if dir == format!("{prefix}review") {
             continue;

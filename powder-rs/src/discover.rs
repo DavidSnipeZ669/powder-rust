@@ -16,7 +16,12 @@ use std::sync::{Arc, Mutex};
 pub const FULL_DET_W: u32 = 1280;
 /// extra pass over each quarter of the screen every this many sampled frames (see discover)
 const QUARTER_EVERY: usize = 6;
-const QUARTERS: [[f32; 4]; 4] = [[0.0, 0.0, 0.55, 0.55], [0.45, 0.0, 1.0, 0.55], [0.0, 0.45, 0.55, 1.0], [0.45, 0.45, 1.0, 1.0]];
+const QUARTERS: [[f32; 4]; 4] = [
+    [0.0, 0.0, 0.55, 0.55],
+    [0.45, 0.0, 1.0, 0.55],
+    [0.0, 0.45, 0.55, 1.0],
+    [0.45, 0.45, 1.0, 1.0],
+];
 pub const FULL_DET_H: u32 = 736;
 pub const EVENT_CATALOG: &str = include_str!("../templates/event_catalog.json");
 
@@ -83,7 +88,20 @@ fn words_of(text: &str) -> Vec<String> {
 pub fn suggest_event(word: &str) -> Option<&'static str> {
     let w = word.to_uppercase();
     let table: &[(&[&str], &str)] = &[
-        (&["VICTORY", "WIN", "WINNER", "WON", "CHAMPION", "CHAMPIONS", "SUCCESS", "EXTRACTED", "VICTOIRE"], "victory"),
+        (
+            &[
+                "VICTORY",
+                "WIN",
+                "WINNER",
+                "WON",
+                "CHAMPION",
+                "CHAMPIONS",
+                "SUCCESS",
+                "EXTRACTED",
+                "VICTOIRE",
+            ],
+            "victory",
+        ),
         (&["DEFEAT", "LOSE", "LOST", "FAILED", "DEFEATED"], "defeat"),
         (&["HEADSHOT"], "headshot"),
         (&["DOUBLE"], "doubleKill"),
@@ -92,8 +110,30 @@ pub fn suggest_event(word: &str) -> Option<&'static str> {
         (&["PENTA", "PENTAKILL"], "pentaKill"),
         (&["ASSIST", "ASSISTED"], "assist"),
         (&["KNOCKED", "KNOCK", "KNOCKDOWN", "DOWNED"], "knockDown"),
-        (&["KILL", "KILLED", "ELIMINATED", "ELIMINATION", "ELIM", "TAKEDOWN", "SLAIN", "DESTROYED"], "kill"),
-        (&["DIED", "DEAD", "WASTED", "SPECTATING", "RESPAWN", "RESPAWNING"], "death"),
+        (
+            &[
+                "KILL",
+                "KILLED",
+                "ELIMINATED",
+                "ELIMINATION",
+                "ELIM",
+                "TAKEDOWN",
+                "SLAIN",
+                "DESTROYED",
+            ],
+            "kill",
+        ),
+        (
+            &[
+                "DIED",
+                "DEAD",
+                "WASTED",
+                "SPECTATING",
+                "RESPAWN",
+                "RESPAWNING",
+            ],
+            "death",
+        ),
         (&["ACE"], "ace"),
         (&["MVP"], "mvp"),
     ];
@@ -104,7 +144,10 @@ pub fn suggest_event(word: &str) -> Option<&'static str> {
     }
     // plurals are scoreboard / stats labels (KILLS, ELIMINATIONS, ASSISTS), not announcements
     if let Some(sing) = w.strip_suffix('S') {
-        if table.iter().any(|(words, _)| words.iter().any(|x| *x == sing)) {
+        if table
+            .iter()
+            .any(|(words, _)| words.iter().any(|x| *x == sing))
+        {
             return None;
         }
     }
@@ -116,7 +159,10 @@ pub fn suggest_event(word: &str) -> Option<&'static str> {
             for x in words.iter().filter(|x| x.len() >= 5) {
                 let sim = similarity(&w, x);
                 // close OCR misreads only (SKILLED ~ KILLED); 0.7 let UNLOCKED pass as KNOCKED
-                if sim >= 0.8 && w.chars().next() == x.chars().next() && best.map(|b| sim > b.0).unwrap_or(true) {
+                if sim >= 0.8
+                    && w.chars().next() == x.chars().next()
+                    && best.map(|b| sim > b.0).unwrap_or(true)
+                {
                     best = Some((sim, ev));
                 }
             }
@@ -126,9 +172,13 @@ pub fn suggest_event(word: &str) -> Option<&'static str> {
     None
 }
 
-
 fn union(a: [f32; 4], b: [f32; 4]) -> [f32; 4] {
-    [a[0].min(b[0]), a[1].min(b[1]), a[2].max(b[2]), a[3].max(b[3])]
+    [
+        a[0].min(b[0]),
+        a[1].min(b[1]),
+        a[2].max(b[2]),
+        a[3].max(b[3]),
+    ]
 }
 
 fn center(b: &[f32; 4]) -> (f32, f32) {
@@ -153,7 +203,10 @@ pub fn group(dets: &[Detection], n_frames: usize) -> Vec<Group> {
         let mut clusters: Vec<(f32, f32, Vec<usize>)> = Vec::new();
         for i in idxs {
             let (cx, cy) = center(&dets[i].bbox);
-            match clusters.iter_mut().find(|c| (c.0 - cx).abs() < 0.10 && (c.1 - cy).abs() < 0.07) {
+            match clusters
+                .iter_mut()
+                .find(|c| (c.0 - cx).abs() < 0.10 && (c.1 - cy).abs() < 0.07)
+            {
                 Some(c) => {
                     let n = c.2.len() as f32;
                     c.0 = (c.0 * n + cx) / (n + 1.0);
@@ -167,7 +220,9 @@ pub fn group(dets: &[Detection], n_frames: usize) -> Vec<Group> {
             let mut frames: Vec<usize> = members.iter().map(|&i| dets[i].frame).collect();
             frames.sort();
             frames.dedup();
-            let bbox = members.iter().fold(dets[members[0]].bbox, |a, &i| union(a, dets[i].bbox));
+            let bbox = members
+                .iter()
+                .fold(dets[members[0]].bbox, |a, &i| union(a, dets[i].bbox));
             let mut examples: Vec<String> = Vec::new();
             for &i in &members {
                 let t = dets[i].text.clone();
@@ -179,13 +234,34 @@ pub fn group(dets: &[Detection], n_frames: usize) -> Vec<Group> {
             let is_static = frac > 0.5 && n_frames >= 6;
             let suggestion = suggest_event(&word).map(|s| s.to_string());
             // ranking: transient, repeated, central, large, event-like words first
-            let h = members.iter().map(|&i| dets[i].bbox[3] - dets[i].bbox[1]).sum::<f32>() / members.len() as f32;
+            let h = members
+                .iter()
+                .map(|&i| dets[i].bbox[3] - dets[i].bbox[1])
+                .sum::<f32>()
+                / members.len() as f32;
             let centrality = 1.0 - ((cx - 0.5).abs() + (cy - 0.5).abs()).min(1.0);
             let mut score = (frames.len() as f32).ln_1p() + centrality + h * 20.0;
-            if suggestion.is_some() { score += 3.0; }
-            if is_static { score -= 4.0; }
-            if frames.len() < 2 { score -= 1.0; }
-            groups.push(Group { id: 0, word: word.clone(), count: frames.len(), frames, detections: members, bbox, examples, is_static, score, suggestion });
+            if suggestion.is_some() {
+                score += 3.0;
+            }
+            if is_static {
+                score -= 4.0;
+            }
+            if frames.len() < 2 {
+                score -= 1.0;
+            }
+            groups.push(Group {
+                id: 0,
+                word: word.clone(),
+                count: frames.len(),
+                frames,
+                detections: members,
+                bbox,
+                examples,
+                is_static,
+                score,
+                suggestion,
+            });
         }
     }
     // merge OCR misreads of the same text at the same place (DBJECTIVE -> OBJECTIVE)
@@ -193,7 +269,10 @@ pub fn group(dets: &[Detection], n_frames: usize) -> Vec<Group> {
     let mut merged: Vec<Group> = Vec::new();
     for g in groups {
         let target = merged.iter_mut().find(|m| {
-            let ov = m.bbox[0] < g.bbox[2] && g.bbox[0] < m.bbox[2] && m.bbox[1] < g.bbox[3] && g.bbox[1] < m.bbox[3];
+            let ov = m.bbox[0] < g.bbox[2]
+                && g.bbox[0] < m.bbox[2]
+                && m.bbox[1] < g.bbox[3]
+                && g.bbox[1] < m.bbox[3];
             ov && similarity(&m.word, &g.word) >= 0.75 && m.is_static == g.is_static
         });
         match target {
@@ -205,7 +284,9 @@ pub fn group(dets: &[Detection], n_frames: usize) -> Vec<Group> {
                 m.detections.extend(g.detections);
                 m.bbox = union(m.bbox, g.bbox);
                 for e in g.examples {
-                    if !m.examples.contains(&e) && m.examples.len() < 8 { m.examples.push(e); }
+                    if !m.examples.contains(&e) && m.examples.len() < 8 {
+                        m.examples.push(e);
+                    }
                 }
                 m.score = m.score.max(g.score);
             }
@@ -237,7 +318,9 @@ pub fn levenshtein(a: &str, b: &str) -> usize {
 
 pub fn similarity(a: &str, b: &str) -> f32 {
     let m = a.chars().count().max(b.chars().count());
-    if m == 0 { return 1.0; }
+    if m == 0 {
+        return 1.0;
+    }
     1.0 - levenshtein(a, b) as f32 / m as f32
 }
 
@@ -248,33 +331,134 @@ pub struct DiscoverOptions {
     pub start: Option<f64>,
     pub end: Option<f64>,
     pub out_dir: PathBuf,
+    /// Areas to read on most frames (a game that already exists: where its events appear). Empty =
+    /// read the whole screen every frame (a new game). With areas, the whole screen is still read
+    /// every 10th frame so events in new places can be found.
+    pub areas: Vec<crate::lua_engine::CropSpec>,
 }
 
-pub fn discover(video: &Path, opt: &DiscoverOptions, progress: Option<SharedProgress>) -> Result<Discovery> {
+pub fn discover(
+    video: &Path,
+    opt: &DiscoverOptions,
+    progress: Option<SharedProgress>,
+) -> Result<Discovery> {
     let set = |p: &Option<SharedProgress>, f: &dyn Fn(&mut Progress)| {
-        if let Some(p) = p { f(&mut p.lock().unwrap()); }
+        if let Some(p) = p {
+            f(&mut p.lock().unwrap());
+        }
     };
-    set(&progress, &|p| { p.state = "loading".into(); p.message = "loading OCR models".into(); });
+    set(&progress, &|p| {
+        p.state = "loading".into();
+        p.message = "loading OCR models".into();
+    });
     let mut ocr = Ocr::load(&opt.ocr_models)?;
     let quiet = progress.is_some();
     if !quiet {
-        eprintln!("[scan] text reading on {}", if crate::runtime::gpu() { "the GPU (DirectML)" } else { "the CPU" });
+        eprintln!(
+            "[scan] text reading on {}",
+            if crate::runtime::gpu() {
+                "the GPU (DirectML)"
+            } else {
+                "the CPU"
+            }
+        );
     }
     let info = crate::video::probe(&opt.ffmpeg, video)?;
     let frames_dir = opt.out_dir.join("frames");
     std::fs::create_dir_all(&frames_dir)?;
-    let mut reader = FrameReader::open(&opt.ffmpeg, video, &info, &SampleOptions { fps: opt.fps, start: opt.start, end: opt.end, max_height: Some(1440) })?;
-    let total = info.duration_sec.map(|d| ((opt.end.unwrap_or(d).min(d) - opt.start.unwrap_or(0.0)).max(0.0) * opt.fps) as usize).unwrap_or(0);
-    set(&progress, &|p| { p.state = "scanning".into(); p.total = total; p.message = "reading all on-screen text".into(); });
+    let mut reader = FrameReader::open(
+        &opt.ffmpeg,
+        video,
+        &info,
+        &SampleOptions {
+            fps: opt.fps,
+            start: opt.start,
+            end: opt.end,
+            max_height: Some(1440),
+        },
+    )?;
+    let total = info
+        .duration_sec
+        .map(|d| {
+            ((opt.end.unwrap_or(d).min(d) - opt.start.unwrap_or(0.0)).max(0.0) * opt.fps) as usize
+        })
+        .unwrap_or(0);
+    set(&progress, &|p| {
+        p.state = "scanning".into();
+        p.total = total;
+        p.message = "reading all on-screen text".into();
+    });
     let full = crate::tools::adhoc_crop("full", [0.0, 0.0, 1.0, 1.0], 3, 40, 4, "");
-    let mut d = Discovery { video: video.display().to_string(), width: info.width, height: info.height, fps: opt.fps, frames_dir: frames_dir.display().to_string(), ..Default::default() };
+    let mut d = Discovery {
+        video: video.display().to_string(),
+        width: info.width,
+        height: info.height,
+        fps: opt.fps,
+        frames_dir: frames_dir.display().to_string(),
+        ..Default::default()
+    };
     let t0 = std::time::Instant::now();
     let mut last_pct = usize::MAX;
-    while let Some((t, frame)) = reader.next_frame()? {
+    let (mut t_video, mut t_text) = (0f64, 0f64);
+    loop {
+        let tv = std::time::Instant::now();
+        let Some((t, frame)) = reader.next_frame()? else {
+            break;
+        };
+        t_video += tv.elapsed().as_secs_f64();
+        let tt = std::time::Instant::now();
         let idx = d.frame_times.len();
         d.frame_times.push(t);
-        let r = ocr.run_crop_sized(&frame, &full, FULL_DET_W, FULL_DET_H)?;
         let (w, h) = (frame.width() as f32, frame.height() as f32);
+        if !opt.areas.is_empty() && idx % 10 != 0 {
+            // quick frame: only the game's known event areas
+            let mut seen_here: Vec<String> = Vec::new();
+            for a in &opt.areas {
+                let (ox, oy, _, _) =
+                    crate::ocr::crop_rect(frame.width(), frame.height(), &a.coords);
+                let r = ocr.run_crop(&frame, a)?;
+                for b in r.boxes {
+                    let text = b.text.trim().to_string();
+                    if text.chars().filter(|c| c.is_alphanumeric()).count() < 2
+                        || seen_here.contains(&text.to_uppercase())
+                    {
+                        continue;
+                    }
+                    seen_here.push(text.to_uppercase());
+                    d.detections.push(Detection {
+                        frame: idx,
+                        bbox: [
+                            (b.x0 + ox) as f32 / w,
+                            (b.y0 + oy) as f32 / h,
+                            (b.x1 + ox) as f32 / w,
+                            (b.y1 + oy) as f32 / h,
+                        ],
+                        text,
+                    });
+                }
+            }
+            let small = imageops::resize(
+                &frame,
+                960,
+                (960.0 * h / w) as u32,
+                imageops::FilterType::Triangle,
+            );
+            small.save(frames_dir.join(format!("frame_{idx:06}.jpg")))?;
+            t_text += tt.elapsed().as_secs_f64();
+            set(&progress, &|p| p.done = idx + 1);
+            if !quiet && total > 0 {
+                let pct = (idx + 1) * 100 / total;
+                if pct != last_pct && pct % 5 == 0 {
+                    last_pct = pct;
+                    let el = t0.elapsed().as_secs_f64();
+                    let left = el / (idx + 1) as f64 * (total.saturating_sub(idx + 1)) as f64;
+                    let nf = (idx + 1) as f64;
+                    eprintln!("[scan] {pct}% ({} of {total} frames, {:.0}s so far, about {:.0} min left) - per frame: video {:.2}s, text {:.2}s (reading the game's known areas)", idx + 1, el, (left / 60.0).ceil(), t_video / nf, t_text / nf);
+                }
+            }
+            continue;
+        }
+        let r = ocr.run_crop_sized(&frame, &full, FULL_DET_W, FULL_DET_H)?;
         let mut seen_here: Vec<String> = Vec::new();
         for b in r.boxes {
             let text = b.text.trim().to_string();
@@ -282,7 +466,16 @@ pub fn discover(video: &Path, opt: &DiscoverOptions, progress: Option<SharedProg
                 continue;
             }
             seen_here.push(text.to_uppercase());
-            d.detections.push(Detection { frame: idx, bbox: [b.x0 as f32 / w, b.y0 as f32 / h, b.x1 as f32 / w, b.y1 as f32 / h], text });
+            d.detections.push(Detection {
+                frame: idx,
+                bbox: [
+                    b.x0 as f32 / w,
+                    b.y0 as f32 / h,
+                    b.x1 as f32 / w,
+                    b.y1 as f32 / h,
+                ],
+                text,
+            });
         }
         // Reading the whole screen at once misses very large, thin text (results screens like
         // VICTORY get merged with what's around them). Every few seconds, also read each quarter of
@@ -294,17 +487,34 @@ pub fn discover(video: &Path, opt: &DiscoverOptions, progress: Option<SharedProg
                 let r = ocr.run_crop_sized(&frame, &tile, FULL_DET_W, FULL_DET_H)?;
                 for b in r.boxes {
                     let text = b.text.trim().to_string();
-                    if text.chars().filter(|c| c.is_alphanumeric()).count() < 3 || seen_here.contains(&text.to_uppercase()) {
+                    if text.chars().filter(|c| c.is_alphanumeric()).count() < 3
+                        || seen_here.contains(&text.to_uppercase())
+                    {
                         continue;
                     }
                     seen_here.push(text.to_uppercase());
-                    let bb = [(b.x0 + ox) as f32 / w, (b.y0 + oy) as f32 / h, (b.x1 + ox) as f32 / w, (b.y1 + oy) as f32 / h];
-                    d.detections.push(Detection { frame: idx, bbox: bb, text });
+                    let bb = [
+                        (b.x0 + ox) as f32 / w,
+                        (b.y0 + oy) as f32 / h,
+                        (b.x1 + ox) as f32 / w,
+                        (b.y1 + oy) as f32 / h,
+                    ];
+                    d.detections.push(Detection {
+                        frame: idx,
+                        bbox: bb,
+                        text,
+                    });
                 }
             }
         }
-        let small = imageops::resize(&frame, 960, (960.0 * h / w) as u32, imageops::FilterType::Triangle);
+        let small = imageops::resize(
+            &frame,
+            960,
+            (960.0 * h / w) as u32,
+            imageops::FilterType::Triangle,
+        );
         small.save(frames_dir.join(format!("frame_{idx:06}.jpg")))?;
+        t_text += tt.elapsed().as_secs_f64();
         set(&progress, &|p| p.done = idx + 1);
         // progress for whoever runs us from the command line (Rewind shows these lines)
         if !quiet && total > 0 {
@@ -312,8 +522,13 @@ pub fn discover(video: &Path, opt: &DiscoverOptions, progress: Option<SharedProg
             if pct != last_pct && (pct % 5 == 0 || idx == 0) {
                 last_pct = pct;
                 let el = t0.elapsed().as_secs_f64();
-                let left = if idx > 0 { el / (idx + 1) as f64 * (total.saturating_sub(idx + 1)) as f64 } else { 0.0 };
-                eprintln!("[scan] {pct}% ({} of {total} frames, {:.0}s so far, about {:.0} min left)", idx + 1, el, (left / 60.0).ceil());
+                let left = if idx > 0 {
+                    el / (idx + 1) as f64 * (total.saturating_sub(idx + 1)) as f64
+                } else {
+                    0.0
+                };
+                let nf = (idx + 1) as f64;
+                eprintln!("[scan] {pct}% ({} of {total} frames, {:.0}s so far, about {:.0} min left) - per frame: video {:.2}s, text {:.2}s", idx + 1, el, (left / 60.0).ceil(), t_video / nf, t_text / nf);
             }
         }
     }
@@ -321,8 +536,14 @@ pub fn discover(video: &Path, opt: &DiscoverOptions, progress: Option<SharedProg
         bail!("no frames decoded");
     }
     d.groups = group(&d.detections, d.frame_times.len());
-    std::fs::write(opt.out_dir.join("discovery.json"), serde_json::to_string(&d)?)?;
-    set(&progress, &|p| { p.state = "done".into(); p.message = format!("{} text groups found", d.groups.len()); });
+    std::fs::write(
+        opt.out_dir.join("discovery.json"),
+        serde_json::to_string(&d)?,
+    )?;
+    set(&progress, &|p| {
+        p.state = "done".into();
+        p.message = format!("{} text groups found", d.groups.len());
+    });
     Ok(d)
 }
 
@@ -358,7 +579,10 @@ fn clusters(boxes: &[[f32; 4]]) -> Vec<Vec<[f32; 4]>> {
     let mut cl: Vec<((f32, f32), Vec<[f32; 4]>)> = Vec::new();
     for b in boxes {
         let (x, y) = c(b);
-        match cl.iter_mut().find(|(m, _)| (m.0 - x).abs() < 0.07 && (m.1 - y).abs() < 0.07) {
+        match cl
+            .iter_mut()
+            .find(|(m, _)| (m.0 - x).abs() < 0.07 && (m.1 - y).abs() < 0.07)
+        {
             Some((m, v)) => {
                 v.push(*b);
                 let n = v.len() as f32;
@@ -369,7 +593,11 @@ fn clusters(boxes: &[[f32; 4]]) -> Vec<Vec<[f32; 4]>> {
     }
     cl.sort_by_key(|(_, v)| std::cmp::Reverse(v.len()));
     let total = boxes.len().max(1);
-    let keep: Vec<Vec<[f32; 4]>> = cl.iter().filter(|(_, v)| v.len() >= 3 && v.len() * 100 >= total * 15).map(|(_, v)| v.clone()).collect();
+    let keep: Vec<Vec<[f32; 4]>> = cl
+        .iter()
+        .filter(|(_, v)| v.len() >= 3 && v.len() * 100 >= total * 15)
+        .map(|(_, v)| v.clone())
+        .collect();
     if keep.is_empty() {
         cl.into_iter().take(1).map(|(_, v)| v).collect()
     } else {
@@ -382,7 +610,12 @@ fn expand(b: [f32; 4]) -> [f32; 4] {
     let h = b[3] - b[1];
     let px = (w * 0.15).max(0.02);
     let py = (h * 0.6).max(0.015);
-    [(b[0] - px).max(0.0), (b[1] - py).max(0.0), (b[2] + px).min(1.0), (b[3] + py).min(1.0)]
+    [
+        (b[0] - px).max(0.0),
+        (b[1] - py).max(0.0),
+        (b[2] + px).min(1.0),
+        (b[3] + py).min(1.0),
+    ]
 }
 
 fn overlaps(a: &[f32; 4], b: &[f32; 4]) -> bool {
@@ -403,7 +636,9 @@ fn spaced_name(ev: &str) -> String {
 
 fn ucfirst(s: &str) -> String {
     let mut c = s.chars();
-    c.next().map(|f| f.to_uppercase().collect::<String>() + c.as_str()).unwrap_or_default()
+    c.next()
+        .map(|f| f.to_uppercase().collect::<String>() + c.as_str())
+        .unwrap_or_default()
 }
 
 /// Smallest text area (in the 512x288 detector space Powder uses) seen inside a crop.
@@ -417,7 +652,14 @@ fn min_det_area(crop: &[f32; 4], boxes: &[[f32; 4]], fw: f32, fh: f32) -> f32 {
         .fold(f32::MAX, f32::min)
 }
 
-pub fn build_game(d: &Discovery, rules: &[Rule], games_dir: &Path, id: &str, name: &str, overwrite: bool) -> Result<PathBuf> {
+pub fn build_game(
+    d: &Discovery,
+    rules: &[Rule],
+    games_dir: &Path,
+    id: &str,
+    name: &str,
+    overwrite: bool,
+) -> Result<PathBuf> {
     if rules.is_empty() {
         bail!("select at least one text and assign it an event");
     }
@@ -427,7 +669,10 @@ pub fn build_game(d: &Discovery, rules: &[Rule], games_dir: &Path, id: &str, nam
     let dir = games_dir.join(id);
     if dir.exists() {
         if !overwrite {
-            bail!("{} already exists (tick overwrite to replace it)", dir.display());
+            bail!(
+                "{} already exists (tick overwrite to replace it)",
+                dir.display()
+            );
         }
     } else {
         crate::tools::new_game(games_dir, id, name, None, None)?;
@@ -435,36 +680,62 @@ pub fn build_game(d: &Discovery, rules: &[Rule], games_dir: &Path, id: &str, nam
     let (fw, fh) = (d.width as f32, d.height as f32);
 
     // 1. region per rule
-    struct R<'a> { rule: &'a Rule, region: [f32; 4], boxes: Vec<[f32; 4]>, words: Vec<String> }
+    struct R<'a> {
+        rule: &'a Rule,
+        region: [f32; 4],
+        boxes: Vec<[f32; 4]>,
+        words: Vec<String>,
+    }
     let mut rs: Vec<R> = Vec::new();
     for r in rules {
         let gs: Vec<&Group> = r.groups.iter().filter_map(|g| d.groups.get(*g)).collect();
         if gs.is_empty() {
             bail!("rule for '{}' has no text selected", r.event);
         }
-        let boxes: Vec<[f32; 4]> = gs.iter().flat_map(|g| g.detections.iter().map(|i| d.detections[*i].bbox)).collect();
-        let mut words: Vec<String> = if r.words.is_empty() { gs.iter().map(|g| g.word.clone()).collect() } else { r.words.iter().map(|w| w.to_uppercase()).collect() };
+        let boxes: Vec<[f32; 4]> = gs
+            .iter()
+            .flat_map(|g| g.detections.iter().map(|i| d.detections[*i].bbox))
+            .collect();
+        let mut words: Vec<String> = if r.words.is_empty() {
+            gs.iter().map(|g| g.word.clone()).collect()
+        } else {
+            r.words.iter().map(|w| w.to_uppercase()).collect()
+        };
         words.dedup();
         // the places on screen where this text really shows up: one union of every occurrence
         // easily covers the whole screen (a word also seen in a scoreboard or a menu), so cluster
         // the occurrences and keep the places that hold a real share of them
         for cl in clusters(&boxes) {
             let region = cl.iter().fold(cl[0], |a, b| union(a, *b));
-            rs.push(R { rule: r, region: expand(region), boxes: cl, words: words.clone() });
+            rs.push(R {
+                rule: r,
+                region: expand(region),
+                boxes: cl,
+                words: words.clone(),
+            });
         }
     }
     // 2. merge overlapping regions into shared crops
     let mut crops: Vec<(GeneratedCrop, Vec<usize>, Vec<[f32; 4]>)> = Vec::new();
     for (i, r) in rs.iter().enumerate() {
         let area = |b: &[f32; 4]| (b[2] - b[0]) * (b[3] - b[1]);
-        match crops.iter_mut().find(|c| overlaps(&c.0.coords, &r.region) && area(&union(c.0.coords, r.region)) < 0.2) {
+        match crops
+            .iter_mut()
+            .find(|c| overlaps(&c.0.coords, &r.region) && area(&union(c.0.coords, r.region)) < 0.2)
+        {
             Some(c) => {
                 c.0.coords = union(c.0.coords, r.region);
                 c.1.push(i);
                 c.2.extend(r.boxes.iter().cloned());
             }
             None => crops.push((
-                GeneratedCrop { name: format!("{}Area", ucfirst(&r.rule.event)), coords: r.region, min_area: 0, dilate: 5, margin: 8 },
+                GeneratedCrop {
+                    name: format!("{}Area", ucfirst(&r.rule.event)),
+                    coords: r.region,
+                    min_area: 0,
+                    dilate: 5,
+                    margin: 8,
+                },
                 vec![i],
                 r.boxes.clone(),
             )),
@@ -475,7 +746,9 @@ pub fn build_game(d: &Discovery, rules: &[Rule], games_dir: &Path, id: &str, nam
         if c.1.len() > 1 {
             c.0.name = format!("Region{}", k + 1);
         }
-        if used.contains(&c.0.name) { c.0.name = format!("{}{}", c.0.name, k + 1); }
+        if used.contains(&c.0.name) {
+            c.0.name = format!("{}{}", c.0.name, k + 1);
+        }
         used.push(c.0.name.clone());
         let a = min_det_area(&c.0.coords, &c.2, fw, fh);
         c.0.min_area = ((a * 0.35) as i32).clamp(20, 20000);
@@ -486,7 +759,12 @@ pub fn build_game(d: &Discovery, rules: &[Rule], games_dir: &Path, id: &str, nam
 
     // 3. Lua
     let catalog: Value = serde_json::from_str(EVENT_CATALOG)?;
-    let lookup = |ev: &str| catalog["events"].as_array().and_then(|a| a.iter().find(|e| e["name"] == ev)).cloned();
+    let lookup = |ev: &str| {
+        catalog["events"]
+            .as_array()
+            .and_then(|a| a.iter().find(|e| e["name"] == ev))
+            .cloned()
+    };
     let mut crop_lua = String::new();
     for (c, _, _) in &crops {
         crop_lua += &format!(
@@ -501,21 +779,42 @@ pub fn build_game(d: &Discovery, rules: &[Rule], games_dir: &Path, id: &str, nam
     let mut seen: Vec<(Vec<String>, std::collections::BTreeSet<usize>)> = Vec::new();
     for det in &d.detections {
         let t = tokens(&det.text);
-        if t.is_empty() { continue; }
-        match seen.iter_mut().find(|x| x.0 == t) { Some(x) => { x.1.insert(det.frame); } None => seen.push((t, [det.frame].into_iter().collect())) }
+        if t.is_empty() {
+            continue;
+        }
+        match seen.iter_mut().find(|x| x.0 == t) {
+            Some(x) => {
+                x.1.insert(det.frame);
+            }
+            None => seen.push((t, [det.frame].into_iter().collect())),
+        }
     }
     let nframes = d.frame_times.len().max(1);
-    let steady: Vec<Vec<String>> = seen.iter().filter(|x| x.1.len() * 10 >= nframes).map(|x| x.0.clone()).collect();
+    let steady: Vec<Vec<String>> = seen
+        .iter()
+        .filter(|x| x.1.len() * 10 >= nframes)
+        .map(|x| x.0.clone())
+        .collect();
     let all_words: Vec<String> = rs.iter().flat_map(|r| r.words.clone()).collect();
     let exclude_for = |words: &[String]| -> Vec<String> {
         let mut out: Vec<String> = Vec::new();
-        let cands: Vec<Vec<String>> = all_words.iter().map(|x| tokens(x)).chain(steady.iter().cloned()).collect();
+        let cands: Vec<Vec<String>> = all_words
+            .iter()
+            .map(|x| tokens(x))
+            .chain(steady.iter().cloned())
+            .collect();
         for c in &cands {
             for w in words {
                 let wt = tokens(w);
-                if !wt.is_empty() && c.len() > wt.len() && c.windows(wt.len()).any(|win| win == wt.as_slice()) && !words.iter().any(|o| &tokens(o) == c) {
+                if !wt.is_empty()
+                    && c.len() > wt.len()
+                    && c.windows(wt.len()).any(|win| win == wt.as_slice())
+                    && !words.iter().any(|o| &tokens(o) == c)
+                {
                     let j = c.join(" ");
-                    if !out.contains(&j) && out.len() < 40 { out.push(j); }
+                    if !out.contains(&j) && out.len() < 40 {
+                        out.push(j);
+                    }
                 }
             }
         }
@@ -529,13 +828,27 @@ pub fn build_game(d: &Discovery, rules: &[Rule], games_dir: &Path, id: &str, nam
             let r = &rs[i];
             let ev = &r.rule.event;
             let lower = ev.to_lowercase();
-            let is_end = ["victory", "defeat", "win", "lose", "result"].iter().any(|k| lower.contains(k));
-            let offset = if lower.contains("kill") || lower.contains("headshot") || lower.contains("knock") || lower.contains("assist") { -0.5 } else { 0.0 };
+            let is_end = ["victory", "defeat", "win", "lose", "result"]
+                .iter()
+                .any(|k| lower.contains(k));
+            let offset = if lower.contains("kill")
+                || lower.contains("headshot")
+                || lower.contains("knock")
+                || lower.contains("assist")
+            {
+                -0.5
+            } else {
+                0.0
+            };
             // how long the text was seen in a row during the scan, to choose a safe "visible" time
             let visible = if is_end { 0.5 } else { 0.3 };
             let longest = r.words.iter().map(|w| w.chars().count()).max().unwrap_or(4);
             let score = if longest <= 4 { 85 } else { 78 };
-            let quoted: Vec<String> = r.words.iter().map(|w| format!("\"{}\"", w.replace('"', ""))).collect();
+            let quoted: Vec<String> = r
+                .words
+                .iter()
+                .map(|w| format!("\"{}\"", w.replace('"', "")))
+                .collect();
             det_lua += &format!(
                 "    {{ event = \"{ev}\", crop = \"{}\", match = {{ {} }}, exclude = {{ {} }}, score = {score}, visible = {visible}, offset = {offset}, priority = {longest} }},\n",
                 c.name,
@@ -543,13 +856,28 @@ pub fn build_game(d: &Discovery, rules: &[Rule], games_dir: &Path, id: &str, nam
                 exclude_for(&r.words).iter().map(|x| format!("\"{}\"", x.replace('"', ""))).collect::<Vec<_>>().join(", ")
             );
             if !specs.iter().any(|s| s.starts_with(&format!("    {ev} = "))) {
-                let merge = if is_end { 10.0 } else if lower.contains("double") || lower.contains("triple") || lower.contains("quadra") || lower.contains("penta") { 4.0 } else { 2.0 };
+                let merge = if is_end {
+                    10.0
+                } else if lower.contains("double")
+                    || lower.contains("triple")
+                    || lower.contains("quadra")
+                    || lower.contains("penta")
+                {
+                    4.0
+                } else {
+                    2.0
+                };
                 specs.push(format!("    {ev} = {merge:.1},\n"));
                 let mut e = lookup(ev).unwrap_or_else(|| {
                     json!({"name": ev, "icon": if is_end { "overall-victory" } else { "generic-event" }, "tooltip": format!("When {} appears on screen.", r.words.join(" / ")), "eventScore": 10,
                            "automontage": {"primary": !is_end, "secondary": is_end, "offsetBefore": 2, "offsetAfter": 2, "effectTypes": []}})
                 });
-                let dn = r.rule.display_name.clone().or_else(|| e["displayName"].as_str().map(String::from)).unwrap_or_else(|| spaced_name(ev));
+                let dn = r
+                    .rule
+                    .display_name
+                    .clone()
+                    .or_else(|| e["displayName"].as_str().map(String::from))
+                    .unwrap_or_else(|| spaced_name(ev));
                 e["displayName"] = json!(dn);
                 e["automontage"] = clip_policy(ev, &dn);
                 e["default"] = json!(true);
@@ -559,18 +887,47 @@ pub fn build_game(d: &Discovery, rules: &[Rule], games_dir: &Path, id: &str, nam
         }
     }
     let lua_path = dir.join("game_postprocess.lua");
-    let mut src = crate::tools::TEMPLATE_LUA.replace("{{ID}}", id).replace("{{NAME}}", name);
+    let mut src = crate::tools::TEMPLATE_LUA
+        .replace("{{ID}}", id)
+        .replace("{{NAME}}", name);
     let re_crops = regex::Regex::new(r"(?s)local ocrConfig = \{.*?\n\}\n").unwrap();
-    src = re_crops.replace(&src, format!("local ocrConfig = {{\n    crops = {{\n{}    }}\n}}\n", crop_lua).as_str()).to_string();
+    src = re_crops
+        .replace(
+            &src,
+            format!(
+                "local ocrConfig = {{\n    crops = {{\n{}    }}\n}}\n",
+                crop_lua
+            )
+            .as_str(),
+        )
+        .to_string();
     let re_det = regex::Regex::new(r"(?s)local DETECTORS = \{.*?\n\}\n").unwrap();
-    src = re_det.replace(&src, format!("local DETECTORS = {{\n{det_lua}}}\n").as_str()).to_string();
+    src = re_det
+        .replace(
+            &src,
+            format!("local DETECTORS = {{\n{det_lua}}}\n").as_str(),
+        )
+        .to_string();
     let re_spec = regex::Regex::new(r"(?s)local EVENT_MERGE = \{.*?\n\}\n").unwrap();
-    src = re_spec.replace(&src, format!("local EVENT_MERGE = {{\n{}}}\n", specs.concat()).as_str()).to_string();
-    src = src.replace("created with powder-rs new-game", "generated by powder-rs studio (Auto mode) - safe to edit by hand");
+    src = re_spec
+        .replace(
+            &src,
+            format!("local EVENT_MERGE = {{\n{}}}\n", specs.concat()).as_str(),
+        )
+        .to_string();
+    src = src.replace(
+        "created with powder-rs new-game",
+        "generated by powder-rs studio (Auto mode) - safe to edit by hand",
+    );
     std::fs::write(&lua_path, src)?;
-    std::fs::write(dir.join("events.json"), serde_json::to_string_pretty(&json!({ "name": id, "events": events }))?)?;
+    std::fs::write(
+        dir.join("events.json"),
+        serde_json::to_string_pretty(&json!({ "name": id, "events": events }))?,
+    )?;
     let meta_p = dir.join("game.json");
-    let mut meta: Value = serde_json::from_str(&std::fs::read_to_string(&meta_p).unwrap_or("{}".into())).unwrap_or(json!({}));
+    let mut meta: Value =
+        serde_json::from_str(&std::fs::read_to_string(&meta_p).unwrap_or("{}".into()))
+            .unwrap_or(json!({}));
     meta["name"] = json!(name);
     meta["calibratedResolution"] = json!(format!("{}x{}", d.width, d.height));
     std::fs::write(&meta_p, serde_json::to_string_pretty(&meta)?)?;
@@ -584,7 +941,8 @@ pub fn combine(ds: Vec<Discovery>) -> Option<Discovery> {
     for d in it {
         let off = out.frame_times.len();
         let t_off = out.frame_times.last().copied().unwrap_or(0.0) + 60.0;
-        out.frame_times.extend(d.frame_times.iter().map(|t| t + t_off));
+        out.frame_times
+            .extend(d.frame_times.iter().map(|t| t + t_off));
         out.detections.extend(d.detections.into_iter().map(|mut x| {
             x.frame += off;
             x
@@ -613,7 +971,10 @@ pub fn load_all(work: &Path) -> Vec<Discovery> {
 }
 
 pub fn load(path: &Path) -> Result<Discovery> {
-    serde_json::from_str(&std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?).context("parsing discovery.json")
+    serde_json::from_str(
+        &std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?,
+    )
+    .context("parsing discovery.json")
 }
 
 /// How an event is used in auto-montages: kills, medals, streaks and the like are the highlights
@@ -622,19 +983,32 @@ pub fn load(path: &Path) -> Result<Discovery> {
 pub fn clip_policy(name: &str, display: &str) -> serde_json::Value {
     let l = format!("{} {}", name, display).to_lowercase();
     let has = |ks: &[&str]| ks.iter().any(|k| l.contains(k));
-    let (primary, secondary, before, after) = if has(&["victory", "defeat", "win", "lose", "result"]) {
-        (false, true, 3, 5)
-    } else if has(&["death", "killed by", "killedby", "eliminated by", "downed", "respawn", "spectat"]) {
-        (false, false, 2, 2)
-    } else if has(&["assist", "level", "xp", "others", "objective", "capture"]) {
-        (false, true, 5, 5)
-    } else {
-        (true, false, 7, 7)
-    };
+    let (primary, secondary, before, after) =
+        if has(&["victory", "defeat", "win", "lose", "result"]) {
+            (false, true, 3, 5)
+        } else if has(&[
+            "death",
+            "killed by",
+            "killedby",
+            "eliminated by",
+            "downed",
+            "respawn",
+            "spectat",
+        ]) {
+            (false, false, 2, 2)
+        } else if has(&["assist", "level", "xp", "others", "objective", "capture"]) {
+            (false, true, 2, 2)
+        } else {
+            (true, false, 3, 3)
+        };
     serde_json::json!({"primary": primary, "secondary": secondary, "offsetBefore": before, "offsetAfter": after, "effectTypes": []})
 }
 
 /// Words of an OCR text for whole-word matching: upper case, numbers ("+100") dropped.
 pub fn tokens(s: &str) -> Vec<String> {
-    s.to_uppercase().split(|c: char| !(c.is_alphanumeric() || c == '\'')).filter(|w| !w.is_empty() && !w.chars().all(|c| c.is_ascii_digit())).map(String::from).collect()
+    s.to_uppercase()
+        .split(|c: char| !(c.is_alphanumeric() || c == '\''))
+        .filter(|w| !w.is_empty() && !w.chars().all(|c| c.is_ascii_digit()))
+        .map(String::from)
+        .collect()
 }
