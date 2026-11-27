@@ -26,6 +26,20 @@
   .pwrs-nav{cursor:pointer}
   .pwrs-len{display:inline-flex;align-items:center;gap:4px;margin-left:10px;font:inherit;font-size:13px;opacity:.9}
   .pwrs-len input{width:64px;padding:3px 6px;border-radius:6px;border:1px solid #8886;background:transparent;color:inherit;font:inherit}
+  .pwrs-modal.wide{width:820px}
+  .pwrs-ev{display:grid;grid-template-columns:170px 1fr 180px 34px;gap:8px;align-items:center;margin-bottom:8px}
+  .pwrs-ev input,.pwrs-ev select{width:100%;box-sizing:border-box;border:1px solid #ddd;border-radius:10px;padding:8px 10px;font:inherit;font-size:13px;background:#fafafa;color:inherit}
+  .pwrs-ev .x{border:0;background:transparent;font-size:18px;cursor:pointer;color:#c33;border-radius:8px;height:34px}
+  .pwrs-ev .x:hover{background:#c331}
+  .pwrs-evhead{display:grid;grid-template-columns:170px 1fr 180px 34px;gap:8px;font-size:12px;font-weight:700;opacity:.7;margin-bottom:6px}
+  .pwrs-evlist{max-height:46vh;overflow:auto;padding-right:4px}
+  .pwrs-chip{display:inline-block;border-radius:999px;padding:5px 11px;margin:0 6px 6px 0;font-size:12px;cursor:pointer;background:#e3e3e3}
+  .pwrs-chip:hover{background:#d4d4d4}
+  .pwrs-actions.split{justify-content:space-between}
+  .pwrs-actions .grp{display:flex;gap:10px;flex-wrap:wrap}
+  .theme__dark .pwrs-ev input,.theme__dark .pwrs-ev select{background:#151515;border-color:#3a3a3a;color:#eee}
+  .theme__dark .pwrs-chip{background:#3a3a3a}
+  .theme__dark .pwrs-chip:hover{background:#474747}
   .theme__dark .pwrs-modal{background:#2a2a2a;color:#f2f2f2}
   .theme__dark .pwrs-modal p.sub{color:#bbb}
   .theme__dark .pwrs-field{background:#1f1f1f}
@@ -45,6 +59,8 @@
       <div class="pwrs-field"><label>Gameplay video</label><div class="pwrs-row"><div class="pwrs-file" id="pwrs-file">No video selected</div><button class="pwrs-btn" id="pwrs-pick">Choose video</button></div></div>
       <div class="pwrs-status" id="pwrs-status"></div>
       <div class="pwrs-log" id="pwrs-log"></div>
+      <div class="pwrs-after" id="pwrs-after" style="display:none;margin-top:12px;gap:10px;flex-wrap:wrap"></div>
+      <a class="pwrs-link" id="pwrs-editlink" style="margin-top:12px">Edit the events of a game you already added…</a>
       <div class="pwrs-actions"><button class="pwrs-btn" id="pwrs-close">Close</button><button class="pwrs-btn primary" id="pwrs-apply">Apply</button></div>
     </div>`
     // use Powder's own font (it is set on the app container, not on <body>)
@@ -54,6 +70,7 @@
     let video = ''
     const $ = (id) => o.querySelector('#' + id)
     $('pwrs-close').onclick = () => o.remove()
+    $('pwrs-editlink').onclick = () => { o.remove(); openEditor() }
     o.addEventListener('mousedown', (e) => { if (e.target === o && !$('pwrs-apply').disabled) o.remove() })
     $('pwrs-pick').onclick = async () => {
       const r = await post('/__pw/x/pick-video')
@@ -73,10 +90,106 @@
         if (s.running) return setTimeout(tick, 800)
         $('pwrs-apply').disabled = false; $('pwrs-pick').disabled = false
         $('pwrs-status').textContent = s.error ? 'Could not add the game: ' + s.error : `Done${s.gameId ? ' (' + s.gameId + ')' : ''}. The game is now in the supported games list.`
+        showAfter(o, s.gameId, !s.error)
       }
       tick()
     }
   }
+  // after Add Game: edit the events, save the log for a bug report, share the game
+  function showAfter(o, id, ok) {
+    const box = o.querySelector('#pwrs-after')
+    if (!box) return
+    box.style.display = 'flex'
+    box.innerHTML = ''
+    const btn = (label, primary, fn) => { const b = document.createElement('button'); b.className = 'pwrs-btn' + (primary ? ' primary' : ''); b.textContent = label; b.onclick = fn; box.appendChild(b); return b }
+    if (ok && id) btn('Review events', true, () => { o.remove(); openEditor(id) })
+    btn('Export log', false, async () => {
+      const r = await post('/__pw/x/export-log', { id })
+      o.querySelector('#pwrs-status').textContent = r.ok ? 'Log saved to ' + r.path + '. Attach it when you report a problem.' : 'Could not save the log: ' + r.error
+    })
+    if (ok && id) btn('Share this game', false, async () => {
+      const r = await post('/__pw/x/share-game', { id })
+      o.querySelector('#pwrs-status').textContent = r.ok ? 'Saved ' + r.zip + '. Drag it into the GitHub page that just opened and click Submit (needs a free GitHub account).' : 'Could not share: ' + (r.error || 'unknown error')
+    })
+    if (ok && id) o.querySelector('#pwrs-status').textContent += ' A video only shows some of a game\'s events: click Review events to remove wrong ones and add missing ones.'
+  }
+
+  const COMMON = ['Kill', 'Headshot', 'Double Kill', 'Triple Kill', 'Quadra Kill', 'Penta Kill', 'Assist', 'Knock Down', 'Revive', 'Death', 'Victory', 'Defeat', 'Level Up', 'Killstreak', 'Objective']
+  const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c])
+
+  // event editor: one row per thing Rewind looks for on screen
+  async function openEditor(id) {
+    if (document.querySelector('.pwrs-overlay')) return
+    const o = document.createElement('div')
+    o.className = 'pwrs-overlay'
+    const ref = document.querySelector('.pwrs-nav') || document.querySelector('button')
+    if (ref) o.style.fontFamily = getComputedStyle(ref).fontFamily
+    document.body.appendChild(o)
+    const close = () => o.remove()
+    if (!id) {
+      const games = await get('/__pw/x/edit-list')
+      o.innerHTML = `<div class="pwrs-modal"><h2>Edit a game's events</h2><p class="sub">Games added with Rewind (yours and community games).</p>
+        <div class="pwrs-field">${games.length ? games.map((g) => `<div class="pwrs-chip" data-id="${esc(g.id)}">${esc(g.name)} <span style="opacity:.6">(${esc(g.id)})</span></div>`).join('') : 'No added games yet.'}</div>
+        <div class="pwrs-actions"><button class="pwrs-btn" id="c">Close</button></div></div>`
+      o.querySelector('#c').onclick = close
+      o.querySelectorAll('[data-id]').forEach((c) => (c.onclick = () => { close(); openEditor(c.dataset.id) }))
+      return
+    }
+    const g = await post('/__pw/x/edit-load', { id })
+    if (g.error) { o.innerHTML = `<div class="pwrs-modal"><h2>Can't edit this game</h2><p class="sub">${esc(g.error)}</p><div class="pwrs-actions"><button class="pwrs-btn" id="c">Close</button></div></div>`; o.querySelector('#c').onclick = close; return }
+    o.innerHTML = `<div class="pwrs-modal wide">
+      <h2>Events: ${esc(g.name)}</h2>
+      <p class="sub">Each row is something Rewind watches for on screen. A single video only shows some of a game's events, so: <b>remove</b> rows that aren't real events (player names, menu text), <b>fix</b> the words, and <b>add</b> events the video didn't show. Words are matched loosely, so small reading mistakes still count. Separate several words with commas.</p>
+      <datalist id="pwrs-common">${COMMON.map((c) => `<option value="${c}">`).join('')}</datalist>
+      <div class="pwrs-evhead"><div>Event</div><div>Text on screen</div><div>Where on screen</div><div></div></div>
+      <div class="pwrs-evlist" id="rows"></div>
+      <button class="pwrs-btn" id="add" style="margin-top:6px">+ Add event</button>
+      <div id="sugg" style="margin-top:14px"></div>
+      <div class="pwrs-status" id="st"></div>
+      <div class="pwrs-actions split"><div class="grp"><button class="pwrs-btn" id="folder" title="events.json and game_postprocess.lua, for hand editing">Open game files</button><button class="pwrs-btn" id="reset" ${g.edited ? '' : 'disabled'}>Undo my edits</button></div>
+        <div class="grp"><button class="pwrs-btn" id="cancel">Close</button><button class="pwrs-btn primary" id="save">Save</button></div></div>
+    </div>`
+    const $ = (s) => o.querySelector('#' + s)
+    const areaName = (a) => (a === 'Anywhere' || a === g.fullScreen ? 'Anywhere on screen' : 'Area: ' + a)
+    const areaOpts = (sel) => g.areas.map((a) => `<option value="${esc(a)}" ${a === sel ? 'selected' : ''}>${esc(areaName(a))}</option>`).join('')
+    const addRow = (r) => {
+      const d = document.createElement('div')
+      d.className = 'pwrs-ev'
+      d.dataset.event = r.event || ''
+      d.innerHTML = `<input class="dn" list="pwrs-common" placeholder="e.g. Kill" value="${esc(r.displayName || '')}"><input class="w" placeholder="e.g. ELIMINATED, KILLED" value="${esc((r.words || []).join(', '))}"><select class="a">${areaOpts(r.area || g.fullScreen || 'Anywhere')}</select><button class="x" title="Remove">✕</button>`
+      d.querySelector('.x').onclick = () => d.remove()
+      // renaming to a different event starts a new one (keeps the old one's settings out of it)
+      d.querySelector('.dn').addEventListener('change', () => { d.dataset.event = '' })
+      $('rows').appendChild(d)
+      return d
+    }
+    g.rows.forEach(addRow)
+    $('add').onclick = () => { const d = addRow({}); d.querySelector('.dn').focus(); $('rows').scrollTop = 1e9 }
+    if (g.suggestions && g.suggestions.length) {
+      $('sugg').innerHTML = `<div style="font-size:13px;font-weight:700;margin-bottom:6px">Other text seen in your video (click to make it an event)</div>` +
+        g.suggestions.map((s) => `<span class="pwrs-chip" data-w="${esc(s.word)}">${esc(s.word)} <span style="opacity:.6">${s.count}×</span></span>`).join('')
+      $('sugg').querySelectorAll('[data-w]').forEach((c) => (c.onclick = () => { addRow({ displayName: '', words: [c.dataset.w] }).querySelector('.dn').focus(); c.remove() }))
+    }
+    $('cancel').onclick = close
+    $('folder').onclick = () => post('/__pw/x/edit-open', { id })
+    $('reset').onclick = async () => {
+      if (!confirmed('reset')) return
+      const r = await post('/__pw/x/edit-reset', { id })
+      if (r.ok) { close(); openEditor(id) } else $('st').textContent = r.error
+    }
+    let armed = ''
+    function confirmed(k) { if (armed === k) return true; armed = k; $('st').textContent = 'Click again to undo all your edits.'; return false }
+    $('save').onclick = async () => {
+      const rows = [...o.querySelectorAll('.pwrs-ev')].map((d) => ({ event: d.dataset.event, displayName: d.querySelector('.dn').value.trim(), words: d.querySelector('.w').value.split(',').map((w) => w.trim()).filter(Boolean), area: d.querySelector('.a').value }))
+      $('save').disabled = true; $('st').textContent = 'Saving and reinstalling the game…'
+      const r = await post('/__pw/x/edit-save', { id, rows })
+      $('save').disabled = false
+      $('st').textContent = r.ok ? `Saved: ${r.events} events. New analyses use them straight away.` : 'Could not save: ' + r.error
+      if (r.ok) $('reset').disabled = false
+    }
+  }
+  window.powderRsEditGame = openEditor
+
   window.powderRsAddGame = open
 
   // 1) sidebar entry, cloned from Powder's own "Auto Montages" item so it looks native

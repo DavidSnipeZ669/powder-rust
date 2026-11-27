@@ -3,6 +3,8 @@ pub mod analyzer;
 pub mod autoedits;
 pub mod automontage;
 pub mod bookmark;
+pub mod community;
+pub mod gameedit;
 pub mod core;
 pub mod cues;
 pub mod customgame;
@@ -66,6 +68,7 @@ pub fn init(ctx: &Arc<Ctx>) {
     recorder::init(h, ctx);
     cues::init(h);
     projects::load_all();
+    community::start_sync();
 }
 
 /// ISO date from epoch milliseconds

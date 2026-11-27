@@ -106,7 +106,8 @@ pub fn suggest_event(word: &str) -> Option<&'static str> {
         for (words, ev) in table {
             for x in words.iter().filter(|x| x.len() >= 5) {
                 let sim = similarity(&w, x);
-                if sim >= 0.7 && best.map(|b| sim > b.0).unwrap_or(true) {
+                // close OCR misreads only (SKILLED ~ KILLED); 0.7 let UNLOCKED pass as KNOCKED
+                if sim >= 0.8 && w.chars().next() == x.chars().next() && best.map(|b| sim > b.0).unwrap_or(true) {
                     best = Some((sim, ev));
                 }
             }
@@ -246,6 +247,10 @@ pub fn discover(video: &Path, opt: &DiscoverOptions, progress: Option<SharedProg
     };
     set(&progress, &|p| { p.state = "loading".into(); p.message = "loading OCR models".into(); });
     let mut ocr = Ocr::load(&opt.ocr_models)?;
+    let quiet = progress.is_some();
+    if !quiet {
+        eprintln!("[scan] text reading on {}", if crate::runtime::gpu() { "the GPU (DirectML)" } else { "the CPU" });
+    }
     let info = crate::video::probe(&opt.ffmpeg, video)?;
     let frames_dir = opt.out_dir.join("frames");
     std::fs::create_dir_all(&frames_dir)?;
@@ -254,6 +259,8 @@ pub fn discover(video: &Path, opt: &DiscoverOptions, progress: Option<SharedProg
     set(&progress, &|p| { p.state = "scanning".into(); p.total = total; p.message = "reading all on-screen text".into(); });
     let full = crate::tools::adhoc_crop("full", [0.0, 0.0, 1.0, 1.0], 3, 40, 4, "");
     let mut d = Discovery { video: video.display().to_string(), width: info.width, height: info.height, fps: opt.fps, frames_dir: frames_dir.display().to_string(), ..Default::default() };
+    let t0 = std::time::Instant::now();
+    let mut last_pct = usize::MAX;
     while let Some((t, frame)) = reader.next_frame()? {
         let idx = d.frame_times.len();
         d.frame_times.push(t);
@@ -269,6 +276,16 @@ pub fn discover(video: &Path, opt: &DiscoverOptions, progress: Option<SharedProg
         let small = imageops::resize(&frame, 960, (960.0 * h / w) as u32, imageops::FilterType::Triangle);
         small.save(frames_dir.join(format!("frame_{idx:06}.jpg")))?;
         set(&progress, &|p| p.done = idx + 1);
+        // progress for whoever runs us from the command line (Rewind shows these lines)
+        if !quiet && total > 0 {
+            let pct = (idx + 1) * 100 / total;
+            if pct != last_pct && (pct % 5 == 0 || idx == 0) {
+                last_pct = pct;
+                let el = t0.elapsed().as_secs_f64();
+                let left = if idx > 0 { el / (idx + 1) as f64 * (total.saturating_sub(idx + 1)) as f64 } else { 0.0 };
+                eprintln!("[scan] {pct}% ({} of {total} frames, {:.0}s so far, about {:.0} min left)", idx + 1, el, (left / 60.0).ceil());
+            }
+        }
     }
     if d.frame_times.is_empty() {
         bail!("no frames decoded");

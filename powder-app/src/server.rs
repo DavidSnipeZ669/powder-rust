@@ -97,6 +97,17 @@ fn handle(ctx: &Ctx, req: Request) {
             ("pick-video", _) => serde_json::json!({"path": crate::dialogs::pick("video")}),
             ("addgame", "POST") => crate::features::customgame::start(v["title"].as_str().unwrap_or(""), v["video"].as_str().unwrap_or("")),
             ("addgame", _) => crate::features::customgame::status_json(),
+            ("share-game", "POST") => crate::features::community::share(v["id"].as_str().unwrap_or("")),
+            ("export-log", "POST") => {
+                let (gid, log) = crate::features::customgame::log_snapshot();
+                let id = v["id"].as_str().map(String::from).or(gid);
+                crate::features::gameedit::export_log(id.as_deref(), &log)
+            }
+            ("edit-list", _) => crate::features::gameedit::list(),
+            ("edit-load", "POST") => crate::features::gameedit::load(v["id"].as_str().unwrap_or("")),
+            ("edit-save", "POST") => crate::features::gameedit::save(v["id"].as_str().unwrap_or(""), &v["rows"]),
+            ("edit-reset", "POST") => crate::features::gameedit::reset(v["id"].as_str().unwrap_or("")),
+            ("edit-open", "POST") => crate::features::gameedit::open_folder(v["id"].as_str().unwrap_or("")),
             _ => return status(req, 404),
         };
         return bytes(req, serde_json::to_vec(&out).unwrap(), "application/json");

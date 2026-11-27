@@ -355,6 +355,11 @@ pub struct AddGameReport {
     pub steam_app_id: Option<String>,
     pub installed_into_powder: Option<String>,
     pub warnings: Vec<String>,
+    /// on-screen words that looked like announcements but aren't known events: not detected,
+    /// offered in Rewind's event editor instead (game names, player names and HUD labels end up
+    /// here too, so they shouldn't become events by themselves)
+    #[serde(default)]
+    pub suggestions: Vec<serde_json::Value>,
 }
 
 pub struct AddGameOptions {
@@ -436,14 +441,19 @@ pub fn add_game(o: &AddGameOptions, progress: Option<discover::SharedProgress>) 
         None => BTreeMap::new(),
     };
     say("deciding which text means which event");
-    let decisions = classify(&d, &vocab, 6);
-    if decisions.is_empty() {
+    let all = classify(&d, &vocab, 6);
+    if all.is_empty() {
         bail!("no event-like text was found in this video. Use a clip that shows kills / wins on screen, or point --game-files at the install folder, or pick text manually in the studio.");
     }
+    // unknown words become suggestions, not events (unless nothing else was found)
+    let (known, custom): (Vec<Decision>, Vec<Decision>) = all.into_iter().partition(|x| !x.reason.starts_with("highlight-like"));
+    rep.suggestions = custom.iter().map(|x| serde_json::json!({"word": x.word, "count": x.count})).collect();
+    let decisions = if known.is_empty() { custom } else { known };
     let rules = rules_from(&decisions, &d);
     rep.decisions = decisions;
     let dir = discover::build_game(&d, &rules, &o.games_dir, &id, &title, true)?;
     rep.dir = dir.display().to_string();
+    let _ = std::fs::write(dir.join("suggestions.json"), serde_json::to_string_pretty(&rep.suggestions)?);
 
     // metadata + artwork
     let meta_p = dir.join("game.json");

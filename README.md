@@ -64,6 +64,7 @@ Then click **Open Rewind**. You don't need Powder or Steam.
   - Name a file `Artist - Title.mp3` to fill in the artist.
   - A picture with the same name, such as `Artist - Title.jpg`, becomes its cover.
   - Royalty-free sources include Pixabay Music, the YouTube Audio Library, Free Music Archive and Incompetech. Check each track's licence.
+- **Community games:** Rewind downloads game support other people have shared, from this repo's [`games`](games) folder, every time it starts. After you add a game that works well, click **Share this game**. Rewind saves it as a zip and opens a GitHub page where you attach it. Once it's reviewed, everyone gets it.
 - **Montage length:** in the auto-montage setup, drag the length slider or type an exact number of seconds in the box next to it.
 
 ---
@@ -93,5 +94,7 @@ Your recordings, clips and montages aren't touched.
 |---|---|
 | `powder-app/` | Rewind itself: Powder's main process rewritten in Rust (native window, settings, library, montages, editor, downloads, recorder control and so on), plus first-run setup. |
 | `powder-rs/` | The custom-game engine: text detection (OCR), event discovery, game installer. It's packed inside `Rewind.exe`. |
+| `games/` | Community game packs, downloaded by every Rewind (see `games/README.md`). |
+| `update-community-index.bat` | Rebuilds `games/index.json` after adding packs. |
 | `build-app.bat` | Builds both and puts the result in `dist-app\Rewind.exe`. |
 | `cleanup.bat` | Removes files the build doesn't need. |

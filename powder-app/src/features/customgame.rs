@@ -120,6 +120,11 @@ pub fn start(title: &str, video: &str) -> Value {
     json!({"ok": true})
 }
 
+pub fn log_snapshot() -> (Option<String>, Vec<String>) {
+    let s = status().lock();
+    (s.game_id.clone(), s.log.clone())
+}
+
 pub fn status_json() -> Value {
     let s = status().lock();
     json!({"running": s.running, "done": s.done, "error": s.error, "gameId": s.game_id, "log": s.log})

@@ -110,6 +110,12 @@ impl FrameReader {
         }
         let mut cmd = Command::new(ffmpeg);
         cmd.args(["-v", "error", "-nostdin"]);
+        // decode on the GPU when possible: high-res/high-fps recordings are mostly decode time
+        // (every frame has to be decoded even though only 2 per second are read)
+        if std::env::var("POWDER_RS_NO_HWDEC").is_err() {
+            cmd.args(["-hwaccel", "auto"]);
+        }
+        cmd.args(["-threads", "0"]);
         if let Some(s) = opt.start {
             cmd.args(["-ss", &format!("{s:.3}")]);
         }

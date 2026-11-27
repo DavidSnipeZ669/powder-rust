@@ -721,6 +721,11 @@ fn unpack_engine() -> Result<()> {
         }
         let mut w = std::fs::File::create(&to).with_context(|| format!("writing {} (is Rewind already running?)", to.display()))?;
         std::io::copy(&mut f, &mut w)?;
+        #[cfg(unix)]
+        if let Some(m) = f.unix_mode() {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(&to, std::fs::Permissions::from_mode(m));
+        }
     }
     std::fs::write(dir.join(".pack-version"), pack_version())?;
     Ok(())

@@ -70,6 +70,20 @@ fn main() {
             }
         }
     }
+    if let Some(i) = args.iter().position(|a| a == "--community-index") {
+        let dir = args.get(i + 1).map(std::path::PathBuf::from).unwrap_or_else(|| std::path::PathBuf::from("games"));
+        match features::community::write_index(&dir) {
+            Ok(n) => {
+                println!("wrote {} with {n} games", dir.join("index.json").display());
+                std::process::exit(0)
+            }
+            Err(e) => {
+                log(&format!("community-index: {e:#}"));
+                eprintln!("{e:#}");
+                std::process::exit(1)
+            }
+        }
+    }
     if args.iter().any(|a| a == "--uninstall") {
         setup::uninstall();
         return;
