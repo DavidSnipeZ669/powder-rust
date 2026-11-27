@@ -366,6 +366,12 @@ pub fn list() -> Value {
 }
 
 /// Open the game's folder (events.json + game_postprocess.lua) in Explorer for hand editing.
+/// Model Creation's training pictures (engine\\datasets, next to engine\\games)
+pub fn datasets_dir() -> PathBuf {
+    let g = super::community::games_dir();
+    g.parent().map(|p| p.to_path_buf()).unwrap_or(g).join("datasets")
+}
+
 pub fn open_folder(id: &str) -> Value {
     match pack_dir(id) {
         Ok(d) => {

@@ -81,8 +81,23 @@ pub fn parse(acc: &str) -> Option<(u32, u32)> {
 /// (Re)register the shortcuts from settings. Returns which types registered.
 pub fn reload() -> Vec<(String, bool)> {
     let s = crate::features::settings::read();
-    let list: Vec<(String, String)> = s["shortcuts"].as_object().map(|m| m.iter().map(|(k, v)| (k.clone(), v["shortcut"].as_str().unwrap_or("").to_string())).collect()).unwrap_or_default();
-    imp::register(list)
+    let mut list: Vec<(String, String)> = s["shortcuts"].as_object().map(|m| m.iter().map(|(k, v)| (k.clone(), v["shortcut"].as_str().unwrap_or("").to_string())).collect()).unwrap_or_default();
+    // a fresh install has no shortcuts saved yet: use Powder's defaults
+    for (ty, def) in [("TOGGLE_RECORD_SESSION", "Control+F8"), ("MANUAL_BOOKMARK", "Control+F9")] {
+        match list.iter_mut().find(|(t, _)| t == ty) {
+            Some((_, acc)) if acc.trim().is_empty() => *acc = def.into(),
+            Some(_) => {}
+            None => list.push((ty.into(), def.into())),
+        }
+    }
+    let res = imp::register(list.clone());
+    for ((ty, acc), (_, ok)) in list.iter().zip(res.iter()) {
+        crate::log(&format!("shortcut {ty} = {acc}: {}", if *ok { "registered" } else { "NOT registered (another app may already use it)" }));
+    }
+    if res.is_empty() {
+        crate::log("shortcuts: the shortcut thread didn't answer");
+    }
+    res
 }
 
 #[cfg(windows)]
@@ -91,7 +106,7 @@ mod imp {
     use std::sync::mpsc::{channel, Sender};
     use windows_sys::Win32::System::Threading::GetCurrentThreadId;
     use windows_sys::Win32::UI::Input::KeyboardAndMouse::{RegisterHotKey, UnregisterHotKey};
-    use windows_sys::Win32::UI::WindowsAndMessaging::{GetMessageW, PostThreadMessageW, MSG, WM_HOTKEY, WM_USER};
+    use windows_sys::Win32::UI::WindowsAndMessaging::{GetMessageW, PeekMessageW, PostThreadMessageW, MSG, PM_NOREMOVE, WM_HOTKEY, WM_USER};
 
     struct Worker {
         tid: u32,
@@ -104,9 +119,12 @@ mod imp {
             let (tx, rx) = channel::<(Vec<(String, String)>, Sender<Vec<(String, bool)>>)>();
             let (tid_tx, tid_rx) = channel();
             std::thread::spawn(move || unsafe {
+                let mut msg: MSG = std::mem::zeroed();
+                // a thread only gets a message queue once it calls a message function: create it
+                // before anyone posts to us, or the first "register" message is silently lost
+                PeekMessageW(&mut msg, std::ptr::null_mut(), WM_USER, WM_USER, PM_NOREMOVE);
                 let _ = tid_tx.send(GetCurrentThreadId());
                 let mut ids: Vec<(i32, String)> = vec![];
-                let mut msg: MSG = std::mem::zeroed();
                 while GetMessageW(&mut msg, std::ptr::null_mut(), 0, 0) > 0 {
                     if msg.message == WM_HOTKEY {
                         if let Some((_, ty)) = ids.iter().find(|(i, _)| *i == msg.wParam as i32) {
@@ -140,8 +158,11 @@ mod imp {
         let w = worker();
         let (rtx, rrx) = channel();
         let _ = w.tx.send((list, rtx));
-        unsafe {
-            PostThreadMessageW(w.tid, WM_USER + 1, 0, 0);
+        for _ in 0..20 {
+            if unsafe { PostThreadMessageW(w.tid, WM_USER + 1, 0, 0) } != 0 {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
         }
         rrx.recv_timeout(std::time::Duration::from_secs(2)).unwrap_or_default()
     }

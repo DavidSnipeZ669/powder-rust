@@ -312,6 +312,23 @@ pub fn analyze(game: &GamePack, video: &Path, opt: &AnalyzeOptions) -> Result<An
         out_events.push(OutputEvent { display_name: game.display_name(&e.name), timestamp: fmt_ts(e.time_sec), time_sec: e.time_sec, name: e.name, known: k });
     }
 
+    // the game's own visual model (.rwdmdl, made with Model Creation) adds what text reading missed
+    if let Some(mp) = crate::rwdmdl::find(&game.dir).filter(|_| std::env::var("POWDER_RS_NO_MODEL").is_err()) {
+        match crate::rwdmdl::Model::load(&mp).and_then(|m| crate::rwdmdl::detect(&opt.ffmpeg, video, m, opt.start, opt.end)) {
+            Ok(found) => {
+                for (name, t) in found {
+                    if out_events.iter().any(|e| e.name == name && (e.time_sec - t).abs() < 3.0) {
+                        continue;
+                    }
+                    let k = known.is_empty() || known.contains(&name);
+                    out_events.push(OutputEvent { display_name: game.display_name(&name), timestamp: fmt_ts(t), time_sec: t, name, known: k });
+                }
+                out_events.sort_by(|a, b| a.time_sec.total_cmp(&b.time_sec));
+            }
+            Err(e) => warnings.push(format!("visual model not used: {e:#}")),
+        }
+    }
+
     // timeline text: prefer what Lua reported, fall back to raw OCR
     let mut timeline_text = tct_descriptions;
     for (k, v) in &paddle {

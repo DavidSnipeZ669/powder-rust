@@ -95,7 +95,7 @@ fn handle(ctx: &Ctx, req: Request) {
         let v: Value = serde_json::from_slice(&req.body).unwrap_or(Value::Null);
         let out = match (rest, req.method.as_str()) {
             ("pick-video", _) => serde_json::json!({"path": crate::dialogs::pick("video")}),
-            ("addgame", "POST") => crate::features::customgame::start(v["title"].as_str().unwrap_or(""), v["video"].as_str().unwrap_or(""), v["addTo"].as_str()),
+            ("addgame", "POST") => crate::features::customgame::start(v["title"].as_str().unwrap_or(""), v["video"].as_str().unwrap_or(""), v["addTo"].as_str(), v["model"] == true),
             ("addgame", _) => crate::features::customgame::status_json(),
             ("share-game", "POST") => crate::features::community::share(v["id"].as_str().unwrap_or("")),
             ("export-log", "POST") => {
@@ -107,6 +107,13 @@ fn handle(ctx: &Ctx, req: Request) {
             ("edit-load", "POST") => crate::features::gameedit::load(v["id"].as_str().unwrap_or("")),
             ("edit-save", "POST") => crate::features::gameedit::save(v["id"].as_str().unwrap_or(""), &v["rows"]),
             ("edit-reset", "POST") => crate::features::gameedit::reset(v["id"].as_str().unwrap_or("")),
+            ("datasets", "GET") => serde_json::json!({"path": crate::features::gameedit::datasets_dir().display().to_string()}),
+            ("datasets-open", "POST") => {
+                let d = crate::features::gameedit::datasets_dir();
+                let _ = std::fs::create_dir_all(&d);
+                crate::features::core::open_path(&d.display().to_string());
+                serde_json::json!({"ok": true})
+            }
             ("edit-open", "POST") => crate::features::gameedit::open_folder(v["id"].as_str().unwrap_or("")),
             _ => return status(req, 404),
         };

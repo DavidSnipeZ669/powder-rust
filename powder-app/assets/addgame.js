@@ -50,14 +50,15 @@
   .theme__dark .pwrs-btn.primary{background:#8b5cf6;color:#fff}`
   const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st)
 
-  function open() {
+  function open(model) {
     if (document.querySelector('.pwrs-overlay')) return
     const o = document.createElement('div')
     o.className = 'pwrs-overlay'
     o.innerHTML = `<div class="pwrs-modal">
-      <h2>Add Custom Game Support</h2>
-      <p class="sub">Type the game's name (or paste its Steam store link) and pick a gameplay video that shows some kills, wins or other highlights. Everything else is automatic.</p>
-      <div class="pwrs-field"><label>What to do</label><select id="pwrs-mode" style="width:100%;box-sizing:border-box;border:1px solid #8884;border-radius:12px;padding:11px 12px;font:inherit;font-size:14px;background:transparent;color:inherit"><option value="">Add a new game</option></select>
+      <h2>${model ? 'Model Creation' : 'Add Custom Game Support'}</h2>
+      <p class="sub">${model ? 'Teaches Rewind what each event <b>looks like</b>, so highlights are found even when the text on screen is missed. Every video you add saves pictures of its events and trains the game\'s model further (the model is saved encrypted as a .rwdmdl file).' : 'Type the game\'s name (or paste its Steam store link) and pick a gameplay video that shows some kills, wins or other highlights. Everything else is automatic.'}</p>
+      ${model ? '<div style="border:1px solid #e0a03a;background:#e0a03a22;border-radius:12px;padding:10px 12px;margin:0 0 14px;font-size:13px;line-height:1.45"><b>⚠ This WILL use more storage.</b> Training needs thousands of pictures taken from your videos. They are kept so the model can keep improving, so the space used grows with the length of each video and keeps growing every time you add one (roughly 20–40 MB per 10 minutes of video). Stored in <a class="pwrs-link" id="pwrs-dsopen" style="display:inline;margin:0" title="Open the folder">Rewind\'s datasets folder</a> <span id="pwrs-dspath" style="opacity:.7;word-break:break-all"></span>. Delete a game\'s folder there to free the space (its model keeps working, it just can\'t keep improving from the old pictures).</div>' : ''}
+      <div class="pwrs-field"><label>What to do</label><select id="pwrs-mode" style="width:100%;box-sizing:border-box;border:1px solid #8884;border-radius:12px;padding:11px 12px;font:inherit;font-size:14px;background:transparent;color:inherit"><option value="">${model ? 'New game (adds the game, then makes its model)' : 'Add a new game'}</option></select>
         <p class="sub" id="pwrs-modehint" style="margin:8px 0 0;display:none">The new video is scanned and combined with this game's earlier videos, so events your first video didn't show get detected too. Your own event edits are kept. The video also counts as analysed.</p></div>
       <div class="pwrs-field" id="pwrs-titlebox"><label>Game title or Steam link</label><input id="pwrs-title" placeholder="e.g. Delta Force  or  https://store.steampowered.com/app/2507950/Delta_Force/"></div>
       <div class="pwrs-field"><label>Gameplay video</label><div class="pwrs-row"><div class="pwrs-file" id="pwrs-file">No video selected</div><button class="pwrs-btn" id="pwrs-pick">Choose video</button></div></div>
@@ -74,9 +75,13 @@
     let video = ''
     const $ = (id) => o.querySelector('#' + id)
     get('/__pw/x/edit-list').then((games) => {
-      for (const g of games) { const op = document.createElement('option'); op.value = g.id; op.textContent = 'Improve "' + g.name + '" with another video'; $('pwrs-mode').appendChild(op) }
+      for (const g of games) { const op = document.createElement('option'); op.value = g.id; op.textContent = (model ? 'Train the "' + g.name + '" model with another video' : 'Improve "' + g.name + '" with another video'); $('pwrs-mode').appendChild(op) }
     })
     $('pwrs-mode').onchange = () => { const add = !!$('pwrs-mode').value; $('pwrs-titlebox').style.display = add ? 'none' : ''; $('pwrs-modehint').style.display = add ? '' : 'none' }
+    if (model) {
+      get('/__pw/x/datasets').then((d) => { if (d && d.path) $('pwrs-dspath').textContent = '(' + d.path + ')' })
+      $('pwrs-dsopen').onclick = () => post('/__pw/x/datasets-open')
+    }
     $('pwrs-close').onclick = () => o.remove()
     $('pwrs-editlink').onclick = () => { o.remove(); openEditor() }
     o.addEventListener('mousedown', (e) => { if (e.target === o && !$('pwrs-apply').disabled) o.remove() })
@@ -92,7 +97,7 @@
       $('pwrs-apply').disabled = true; $('pwrs-pick').disabled = true
       $('pwrs-log').style.display = 'block'
       $('pwrs-status').textContent = 'Working... this takes a few minutes for a long video.'
-      await post('/__pw/x/addgame', { title, video, addTo })
+      await post('/__pw/x/addgame', { title, video, addTo, model: !!model })
       const tick = async () => {
         const s = await get('/__pw/x/addgame')
         $('pwrs-log').textContent = s.log.join('\n'); $('pwrs-log').scrollTop = 1e9
@@ -199,7 +204,8 @@
   }
   window.powderRsEditGame = openEditor
 
-  window.powderRsAddGame = open
+  window.powderRsAddGame = () => open(false)
+  window.powderRsModelCreation = () => open(true)
 
   // 1) sidebar entry, cloned from Powder's own "Auto Montages" item so it looks native
   function addNav() {
@@ -216,6 +222,14 @@
     if (svg) svg.outerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="5" width="22" height="15" rx="5"/><path d="M7 10v5M4.5 12.5h5"/><circle cx="16" cy="11" r="1"/><circle cx="18.5" cy="14" r="1"/></svg>'
     clone.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); open() }, true)
     btn.parentElement.insertBefore(clone, btn.nextSibling)
+    const mc = clone.cloneNode(true)
+    mc.classList.add('pwrs-nav-model')
+    const ml = Array.from(mc.querySelectorAll('span')).find((s) => /Add/i.test(s.textContent || ''))
+    if (ml) ml.innerHTML = 'Model<br> Creation'
+    const ms = mc.querySelector('svg')
+    if (ms) ms.outerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/><circle cx="12" cy="12" r="2"/></svg>'
+    mc.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); open(true) }, true)
+    clone.parentElement.insertBefore(mc, clone.nextSibling)
   }
   // 2) "Game not listed?" link under the game picker in the analysis panel
   function addLink() {
@@ -230,7 +244,7 @@
       const a = document.createElement('div')
       a.className = 'pwrs-link'
       a.textContent = 'Game not listed? Add Custom Game Support'
-      a.onclick = open
+      a.onclick = () => open(false)
       el.parentElement.insertBefore(a, el.nextSibling)
     }
     // remove links left inside pickers by older versions

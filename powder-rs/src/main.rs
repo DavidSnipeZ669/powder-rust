@@ -26,6 +26,7 @@ mod studio;
 mod tools;
 mod video;
 mod vision;
+mod rwdmdl;
 
 use anyhow::{bail, Context, Result};
 use clap::{Args, Parser, Subcommand};
@@ -65,6 +66,27 @@ struct Common {
 
 #[derive(Subcommand)]
 enum Cmd {
+    /// MODEL CREATION: save labelled frames from a video (events come from the game's test run on
+    /// it, see add-game) into datasets/<ID>/<ID>_<event>/, then (re)train the game's .rwdmdl model
+    ModelTrain {
+        /// gameplay video already added with add-game / add-game --add-to (optional: retrain only)
+        video: Option<PathBuf>,
+        #[arg(long)]
+        id: String,
+        /// games folder (default: first --games folder or ./games)
+        #[arg(long)]
+        dir: Option<PathBuf>,
+    },
+    /// find events in a video with a game's .rwdmdl model (prints JSON)
+    ModelDetect {
+        video: PathBuf,
+        #[arg(long)]
+        model: PathBuf,
+        #[arg(long)]
+        start: Option<f64>,
+        #[arg(long)]
+        end: Option<f64>,
+    },
     /// Detect events in a video
     Analyze {
         /// game id (folder name) or path to a game folder
@@ -443,6 +465,57 @@ fn run() -> Result<()> {
                 std::fs::write(&r, report::html(&a))?;
                 println!("report:  {}", r.display());
             }
+        }
+        Cmd::ModelTrain { video, id, dir } => {
+            let games_dir = dir.or_else(|| ctx.c.games.first().cloned()).unwrap_or_else(|| paths::exe_dir().join("games"));
+            let gdir = games_dir.join(&id);
+            if !gdir.join("game.json").exists() {
+                bail!("game {id} doesn't exist yet - add it with add-game first");
+            }
+            let ds = rwdmdl::dataset_dir(&games_dir, &id);
+            std::fs::create_dir_all(&ds)?;
+            let test_path = games_dir.join("_work").join(&id).join("test.events.json");
+            if let Some(v) = &video {
+                let test: serde_json::Value = serde_json::from_slice(&std::fs::read(&test_path).context("no test run for this game - run add-game on the video first")?)?;
+                let same = test["video"].as_str().map(|p| Path::new(p).file_name() == v.file_name()).unwrap_or(false);
+                if !same {
+                    bail!("the game's last test run was on another video - run add-game --add-to {id} on this video first");
+                }
+                let evs: Vec<(String, f64)> = test["events"].as_array().into_iter().flatten().filter(|e| e["from_model"] != true).filter_map(|e| Some((e["name"].as_str()?.to_string(), e["time_sec"].as_f64()?))).collect();
+                eprintln!("[model] saving pictures of {} event(s) from the video", evs.len());
+                let (p, n) = rwdmdl::extract(&ctx.ffmpeg()?, v, &id, &evs, &ds)?;
+                println!("saved {p} event picture(s) and {n} \"nothing\" picture(s) to {}", ds.display());
+            }
+            let m = rwdmdl::train(&id, &ds)?;
+            let out = gdir.join(format!("{id}.rwdmdl"));
+            m.save(&out)?;
+            println!("model trained on {} picture(s): {}", m.meta.trained_images, out.display());
+            for (c, a) in &m.meta.accuracy {
+                println!("  {c:<18} {:.0}% right on held-back pictures", a * 100.0);
+            }
+            // add what the model finds in this video to its test run (used to mark the video analysed)
+            if let Some(v) = &video {
+                let found = rwdmdl::detect(&ctx.ffmpeg()?, v, rwdmdl::Model::load(&out)?, None, None)?;
+                let mut test: serde_json::Value = serde_json::from_slice(&std::fs::read(&test_path)?)?;
+                let mut evs = test["events"].as_array().cloned().unwrap_or_default();
+                let mut added = 0;
+                for (name, t) in found {
+                    if evs.iter().any(|e| e["name"] == name.as_str() && (e["time_sec"].as_f64().unwrap_or(-99.0) - t).abs() < 3.0) {
+                        continue;
+                    }
+                    added += 1;
+                    evs.push(serde_json::json!({"name": name, "display_name": name, "time_sec": t, "timestamp": analyze::fmt_ts(t), "known": true, "from_model": true}));
+                }
+                evs.sort_by(|a, b| a["time_sec"].as_f64().unwrap_or(0.0).total_cmp(&b["time_sec"].as_f64().unwrap_or(0.0)));
+                test["events"] = serde_json::json!(evs);
+                std::fs::write(&test_path, serde_json::to_vec_pretty(&test)?)?;
+                println!("the model found {added} extra event(s) the text reading missed in this video");
+            }
+        }
+        Cmd::ModelDetect { video, model, start, end } => {
+            let found = rwdmdl::detect(&ctx.ffmpeg()?, &video, rwdmdl::Model::load(&model)?, start, end)?;
+            let v: Vec<_> = found.iter().map(|(n, t)| serde_json::json!({"name": n, "time_sec": t})).collect();
+            println!("{}", serde_json::to_string(&v)?);
         }
         Cmd::AddGame { title, steam, video, game_files, rate, scan_fps, no_install, powder, offline, dir, overwrite, reuse_scan, add_to } => {
             ctx.init_ort()?;

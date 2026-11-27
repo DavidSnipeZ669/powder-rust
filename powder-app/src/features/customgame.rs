@@ -39,7 +39,7 @@ fn push(line: &str) {
     }
 }
 
-pub fn start(title: &str, video: &str, add_to: Option<&str>) -> Value {
+pub fn start(title: &str, video: &str, add_to: Option<&str>, model: bool) -> Value {
     {
         let mut s = status().lock();
         if s.running {
@@ -75,39 +75,13 @@ pub fn start(title: &str, video: &str, add_to: Option<&str>) -> Value {
             c.arg("--ffmpeg").arg(f);
         }
         c.arg("--overwrite").stdout(Stdio::piped()).stderr(Stdio::piped());
+        if model {
+            // the model must learn from what the text reading found, not from its own guesses
+            c.env("POWDER_RS_NO_MODEL", "1");
+        }
         crate::gpu::HiddenExt::creation_flags_hidden(&mut c);
         push(&format!("Adding \"{t}\" from {}", std::path::Path::new(&v).file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_default()));
-        let r = c.spawn().and_then(|mut child| {
-            let out = child.stdout.take().unwrap();
-            let err = child.stderr.take().unwrap();
-            let h = std::thread::spawn(move || {
-                for l in BufReader::new(err).lines().map_while(Result::ok) {
-                    let l = l.trim().to_string();
-                    if !l.is_empty() {
-                        push(&l);
-                    }
-                }
-            });
-            for l in BufReader::new(out).lines().map_while(Result::ok) {
-                let l = l.trim_end().to_string();
-                if l.is_empty() {
-                    continue;
-                }
-                // "created game pack XYZ" / "game id: XYZ"
-                for key in ["game id: ", "created game ", "installing "] {
-                    if let Some(rest) = l.split(key).nth(1) {
-                        if let Some(id) = rest.split_whitespace().next() {
-                            if id.chars().all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_') && id.len() >= 2 {
-                                status().lock().game_id = Some(id.to_string());
-                            }
-                        }
-                    }
-                }
-                push(&l);
-            }
-            let _ = h.join();
-            child.wait()
-        });
+        let r = run_streaming(&mut c);
         let ok = matches!(&r, Ok(s) if s.success());
         if ok {
             let gid = status().lock().game_id.clone();
@@ -117,6 +91,21 @@ pub fn start(title: &str, video: &str, add_to: Option<&str>) -> Value {
                         Ok(true) => push("kept your earlier event edits"),
                         Ok(false) => {}
                         Err(e) => push(&format!("couldn't re-apply your earlier edits: {e:#}")),
+                    }
+                }
+                if model {
+                    push("Model Creation: saving training pictures and training the model...");
+                    let mut m = Command::new(&eng);
+                    m.current_dir(eng.parent().unwrap()).arg("model-train").arg(&v).arg("--id").arg(&gid).arg("--dir").arg(super::community::games_dir());
+                    if let Some(f) = &ffmpeg {
+                        m.arg("--ffmpeg").arg(f);
+                    }
+                    m.stdout(Stdio::piped()).stderr(Stdio::piped());
+                    crate::gpu::HiddenExt::creation_flags_hidden(&mut m);
+                    match run_streaming(&mut m) {
+                        Ok(s) if s.success() => push("model updated"),
+                        Ok(_) => push("training didn't finish (see above) - the game still works with text reading"),
+                        Err(e) => push(&format!("couldn't start training: {e}")),
                     }
                 }
                 match mark_analysed(&gid, &v) {
@@ -141,6 +130,77 @@ pub fn start(title: &str, video: &str, add_to: Option<&str>) -> Value {
     json!({"ok": true})
 }
 
+/// run the engine, streaming its output into the log (and picking up the game id)
+fn run_streaming(c: &mut Command) -> std::io::Result<std::process::ExitStatus> {
+    c.spawn().and_then(|mut child| {
+        let out = child.stdout.take().unwrap();
+        let err = child.stderr.take().unwrap();
+        let h = std::thread::spawn(move || {
+            for l in BufReader::new(err).lines().map_while(Result::ok) {
+                let l = l.trim().to_string();
+                if !l.is_empty() {
+                    push(&l);
+                }
+            }
+        });
+        for l in BufReader::new(out).lines().map_while(Result::ok) {
+            let l = l.trim_end().to_string();
+            if l.is_empty() {
+                continue;
+            }
+            // "created game pack XYZ" / "game id: XYZ"
+            for key in ["game id: ", "created game ", "installing "] {
+                if let Some(rest) = l.split(key).nth(1) {
+                    if let Some(id) = rest.split_whitespace().next() {
+                        if id.chars().all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_') && id.len() >= 2 {
+                            status().lock().game_id = Some(id.to_string());
+                        }
+                    }
+                }
+            }
+            push(&l);
+        }
+        let _ = h.join();
+        child.wait()
+    })
+}
+
+/// One highlight in the analysis result's videoEvents (same shape the native analyzer gives).
+pub fn video_event(events_json: &Value, name: &str, time_sec: f64) -> Value {
+    let s = events_json["events"].as_array().and_then(|a| a.iter().find(|e| e["name"] == name)).cloned().unwrap_or(json!({}));
+    let t = time_sec * 1000.0;
+    let before = s["automontage"]["offsetBefore"].as_f64().unwrap_or(2.0) * 1000.0;
+    let after = s["automontage"]["offsetAfter"].as_f64().unwrap_or(2.0) * 1000.0;
+    json!({"eventName": name, "startTimeMs": t, "suggestedStartContextMs": (t - before).max(0.0), "suggestedEndContextMs": t + after, "score": s["eventScore"].as_f64().unwrap_or(10.0)})
+}
+
+/// For "Run AI analysis": Powder's own analyzer can't read .rwdmdl models, so a game made with
+/// Model Creation gets the model's extra events added afterwards.
+pub fn add_model_events(game: &str, video: &str, start: Option<f64>, end: Option<f64>, result: &mut Value) -> anyhow::Result<usize> {
+    let dir = super::community::games_dir().join(game);
+    let Some(model) = std::fs::read_dir(&dir).ok().and_then(|r| r.flatten().map(|e| e.path()).find(|p| p.extension().map(|x| x == "rwdmdl").unwrap_or(false))) else { return Ok(0) };
+    let eng = engine().ok_or_else(|| anyhow::anyhow!("engine missing"))?;
+    let mut c = Command::new(&eng);
+    c.current_dir(eng.parent().unwrap()).arg("model-detect").arg(video).arg("--model").arg(&model);
+    if let Some(s) = start { c.arg("--start").arg(s.to_string()); }
+    if let Some(e) = end { c.arg("--end").arg(e.to_string()); }
+    if let Some(f) = crate::media::ffmpeg() { c.arg("--ffmpeg").arg(f); }
+    crate::gpu::HiddenExt::creation_flags_hidden(&mut c);
+    let out = c.stderr(Stdio::null()).output()?;
+    let found: Vec<Value> = serde_json::from_slice(&out.stdout)?;
+    let evj: Value = serde_json::from_slice(&std::fs::read(dir.join("events.json")).unwrap_or_default()).unwrap_or(json!({}));
+    if !result["videoEvents"].is_array() { result["videoEvents"] = json!([]); }
+    let ve = result["videoEvents"].as_array_mut().unwrap();
+    let mut added = 0;
+    for f in found {
+        let (n, t) = (f["name"].as_str().unwrap_or(""), f["time_sec"].as_f64().unwrap_or(0.0));
+        if ve.iter().any(|e| e["eventName"] == n && (e["startTimeMs"].as_f64().unwrap_or(-1e9) - t * 1000.0).abs() < 3000.0) { continue; }
+        ve.push(video_event(&evj, n, t));
+        added += 1;
+    }
+    Ok(added)
+}
+
 /// The engine already analysed the video while testing the game: store that as the video's
 /// analysis (like "Run AI analysis" does), so its highlights and auto-montage work straight away.
 fn mark_analysed(id: &str, video: &str) -> anyhow::Result<bool> {
@@ -155,15 +215,8 @@ fn mark_analysed(id: &str, video: &str) -> anyhow::Result<bool> {
     let pid = project["id"].as_str().context("project id")?.to_string();
     let evj: Value = serde_json::from_slice(&std::fs::read(games.join(id).join("events.json")).unwrap_or_default()).unwrap_or(json!({}));
     let spec = |name: &str| evj["events"].as_array().and_then(|a| a.iter().find(|e| e["name"] == name)).cloned().unwrap_or(json!({}));
-    let mut video_events = Vec::new();
-    for e in test["events"].as_array().cloned().unwrap_or_default() {
-        let name = e["name"].as_str().unwrap_or("").to_string();
-        let t = e["time_sec"].as_f64().unwrap_or(0.0) * 1000.0;
-        let s = spec(&name);
-        let before = s["automontage"]["offsetBefore"].as_f64().unwrap_or(2.0) * 1000.0;
-        let after = s["automontage"]["offsetAfter"].as_f64().unwrap_or(2.0) * 1000.0;
-        video_events.push(json!({"eventName": name, "startTimeMs": t, "suggestedStartContextMs": (t - before).max(0.0), "suggestedEndContextMs": t + after, "score": s["eventScore"].as_f64().unwrap_or(10.0)}));
-    }
+    let video_events: Vec<Value> = test["events"].as_array().cloned().unwrap_or_default().iter().map(|e| video_event(&evj, e["name"].as_str().unwrap_or(""), e["time_sec"].as_f64().unwrap_or(0.0))).collect();
+    let _ = spec;
     // keep whatever else an earlier analysis found (audio, transcript), replace the game events
     let mut raw = project["rawResult"].clone();
     if !raw.is_object() {

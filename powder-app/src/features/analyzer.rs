@@ -147,7 +147,14 @@ pub fn init(h: &Host, _ctx: &Arc<Ctx>) {
         let r = analyze(h, Some(&id), input);
         crate::gpu::block_sleep(&id, false);
         match r {
-            Ok(result) => {
+            Ok(mut result) => {
+                if let Some(g) = game.as_str() {
+                    match super::customgame::add_model_events(g, &video, o["startSec"].as_f64(), o["endSec"].as_f64(), &mut result) {
+                        Ok(n) if n > 0 => crate::log(&format!("visual model added {n} event(s)")),
+                        Ok(_) => {}
+                        Err(e) => crate::log(&format!("visual model: {e:#}")),
+                    }
+                }
                 patch_task(h, &id, json!({"progress": 1, "result": result.clone(), "status": "DONE"}));
                 Ok(result)
             }
