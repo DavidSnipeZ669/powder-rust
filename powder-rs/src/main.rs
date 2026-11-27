@@ -159,8 +159,9 @@ enum Cmd {
         id: String,
         #[arg(long)]
         name: String,
-        /// EVENT=WORD[,WORD...]  (words are matched against discovered groups)
-        #[arg(long = "rule", required = true)]
+        /// EVENT=WORD[,WORD...]  (words are matched against discovered groups).
+        /// Without any: decide automatically, like add-game (rebuilds a game from a saved scan)
+        #[arg(long = "rule")]
         rules: Vec<String>,
         #[arg(long)]
         dir: Option<PathBuf>,
@@ -523,6 +524,15 @@ fn run() -> Result<()> {
             let p = if discovery.is_dir() { discovery.join("discovery.json") } else { discovery };
             let d = discover::load(&p)?;
             let mut rs = Vec::new();
+            if rules.is_empty() {
+                let all = autogame::classify(&d, &std::collections::BTreeMap::new(), 6);
+                let (known, custom): (Vec<_>, Vec<_>) = all.into_iter().partition(|x: &autogame::Decision| !x.reason.starts_with("highlight-like"));
+                for x in &known {
+                    println!("  {:<14} {:<14} {:>4}x  {}", x.event, x.word, x.count, x.reason);
+                }
+                println!("  suggestions only: {}", custom.iter().map(|x| x.word.clone()).collect::<Vec<_>>().join(", "));
+                rs = autogame::rules_from(&known, &d);
+            }
             for r in rules {
                 let (ev, words) = r.split_once('=').context("rule must be EVENT=WORD[,WORD]")?;
                 let words: Vec<String> = words.split(',').map(|w| w.trim().to_uppercase()).filter(|w| !w.is_empty()).collect();

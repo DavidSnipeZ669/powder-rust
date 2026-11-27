@@ -60,6 +60,15 @@ const PHRASES: &[(&str, &str)] = &[
     ("EXTRACTION SUCCESSFUL", "victory"), ("EXTRACTED", "victory"), ("FIRST BLOOD", "firstBlood"), ("ACE", "ace"),
     ("REVIVED", "revive"), ("REVIVE", "revive"), ("OBJECTIVE CAPTURED", "objective"), ("POINT CAPTURED", "objective"),
     ("BOMB PLANTED", "bombPlanted"), ("BOMB DEFUSED", "bombDefused"), ("GOAL", "goal"), ("TOUCHDOWN", "goal"),
+    // shooter medals (Call of Duty, Battlefield and others use the same names)
+    ("HEADSHOT", "headshot"), ("HEADSHOT KILL", "headshot"), ("QUICK SCOPE", "quickscope"), ("QUICKSCOPE", "quickscope"),
+    ("NO SCOPE", "noscope"), ("NOSCOPE", "noscope"), ("LONGSHOT", "longshot"), ("POINT BLANK", "pointBlank"),
+    ("ONE SHOT ONE KILL", "oneShotOneKill"), ("JUMPSHOT", "jumpshot"), ("HIPFIRE", "hipfire"), ("COLLATERAL", "collateral"),
+    ("KINGSLAYER", "kingslayer"), ("REVENGE", "revenge"), ("PAYBACK", "revenge"), ("AVENGER", "avenger"), ("SAVIOR", "savior"),
+    ("BUZZKILL", "buzzkill"), ("BACKSTABBER", "backstab"), ("BACKSTAB", "backstab"), ("MELEE KILL", "meleeKill"),
+    ("BLOODTHIRSTY", "bloodthirsty"), ("MERCILESS", "killStreak"), ("RUTHLESS", "killStreak"), ("RELENTLESS", "killStreak"),
+    ("FURY KILL", "furyKill"), ("FRENZY KILL", "frenzyKill"), ("SUPER KILL", "superKill"), ("RAMPAGE", "rampage"),
+    ("COMEBACK", "comeback"), ("AFTERLIFE", "afterlife"), ("WALLBANG", "wallbang"),
 ];
 
 fn phrase_event(text: &str) -> Option<&'static str> {
@@ -160,15 +169,24 @@ pub fn classify(d: &Discovery, vocab: &BTreeMap<String, String>, max_custom: usi
     for g in order {
         if g.is_static { continue; }
         let ex: Vec<&String> = g.examples.iter().collect();
-        // 1) phrase in the full text (DOUBLE KILL, MISSION FAILED ...)
-        let by_phrase = ex.iter().find_map(|t| phrase_event(t));
+        // 1) phrase in the full text (DOUBLE KILL, MISSION FAILED ...). A word group collects
+        //    every text the word appeared in ("KILL" is in "KILL", "DOUBLE KILL", "KILL CONFIRMED"),
+        //    so a phrase only decides when most of those texts contain it.
+        let by_phrase = {
+            let hits: Vec<&str> = ex.iter().filter_map(|t| phrase_event(t)).collect();
+            hits.iter().copied().max_by_key(|e| hits.iter().filter(|x| *x == e).count()).filter(|e| hits.iter().filter(|x| *x == e).count() * 2 > ex.len())
+        };
         // 2) phrase mined from the game files
         let by_vocab = ex.iter().find_map(|t| {
             let up = t.to_uppercase();
             vocab.iter().find(|(p, _)| up.contains(p.as_str()) && p.split_whitespace().any(|w| w == g.word)).map(|(_, e)| e.clone())
         });
-        // 3) single keyword
-        let by_word = g.suggestion.clone();
+        // 3) single keyword (recomputed: scans saved by older versions used looser matching)
+        let by_word = crate::discover::suggest_event(&g.word).map(String::from);
+        // one sighting is too little to make an event from (a word in a menu or on a wall)
+        if g.count < 2 {
+            continue;
+        }
         let (event, reason) = if let Some(e) = by_phrase {
             (e.to_string(), format!("phrase in \"{}\"", ex[0]))
         } else if let Some(e) = by_vocab {
@@ -204,12 +222,23 @@ pub fn classify(d: &Discovery, vocab: &BTreeMap<String, String>, max_custom: usi
                 if iou(g.bbox, other.bbox) < 0.2 {
                     return None;
                 }
+                // a misread looks like the word (WCTTORY ~ VICTORY); different words that pop up
+                // together (a medal stack: QUICK SCOPE under DOUBLE KILL) are separate events
+                if crate::discover::similarity(&g.word, &x.word) < 0.6 {
+                    return None;
+                }
                 let near = g.frames.iter().filter(|f| other.frames.iter().any(|o| (**f as i64 - *o as i64).abs() <= 3)).count();
                 (near as f32 >= 0.5 * g.frames.len().max(1) as f32).then(|| (x.event.clone(), x.word.clone()))
             });
+            // text that moves around (writing on in-game objects, player names over heads and
+            // in scoreboards) is not a HUD announcement
+            let centers: Vec<(f32, f32)> = g.detections.iter().map(|i| { let b = d.detections[*i].bbox; ((b[0] + b[2]) / 2.0, (b[1] + b[3]) / 2.0) }).collect();
+            let med = |mut v: Vec<f32>| { v.sort_by(|a, b| a.total_cmp(b)); v[v.len() / 2] };
+            let (mx, my) = (med(centers.iter().map(|c| c.0).collect()), med(centers.iter().map(|c| c.1).collect()));
+            let steady = centers.iter().filter(|c| (c.0 - mx).abs() < 0.05 && (c.1 - my).abs() < 0.05).count() as f32 >= 0.6 * centers.len() as f32;
             if let Some((ev, w)) = same_moment {
                 (ev, format!("misread of \"{w}\" (same moments)"))
-            } else if custom < max_custom && g.count >= 2 && frac < 0.3 && central && h >= median_h * 0.9 && g.word.len() >= 4 && consistent && caps && !inside && !contains_known {
+            } else if custom < max_custom && steady && g.count >= 2 && frac < 0.3 && central && h >= median_h * 0.9 && g.word.len() >= 4 && consistent && caps && !inside && !contains_known {
                 custom += 1;
                 (camel(&g.word), format!("highlight-like text \"{}\" (central, capitals, appears briefly {}x)", g.word, g.count))
             } else {

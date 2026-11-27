@@ -14,6 +14,9 @@ use std::sync::{Arc, Mutex};
 
 /// Detector input used for full frames (16:9, multiple of 32). Larger = finds smaller text, slower.
 pub const FULL_DET_W: u32 = 1280;
+/// extra pass over each quarter of the screen every this many sampled frames (see discover)
+const QUARTER_EVERY: usize = 6;
+const QUARTERS: [[f32; 4]; 4] = [[0.0, 0.0, 0.55, 0.55], [0.45, 0.0, 1.0, 0.55], [0.0, 0.45, 0.55, 1.0], [0.45, 0.45, 1.0, 1.0]];
 pub const FULL_DET_H: u32 = 736;
 pub const EVENT_CATALOG: &str = include_str!("../templates/event_catalog.json");
 
@@ -97,6 +100,12 @@ pub fn suggest_event(word: &str) -> Option<&'static str> {
     for (words, ev) in table {
         if words.iter().any(|x| w == *x) {
             return Some(ev);
+        }
+    }
+    // plurals are scoreboard / stats labels (KILLS, ELIMINATIONS, ASSISTS), not announcements
+    if let Some(sing) = w.strip_suffix('S') {
+        if table.iter().any(|(words, _)| words.iter().any(|x| *x == sing)) {
+            return None;
         }
     }
     // OCR often misreads a letter or two on busy backgrounds ("VCTORY", "WCTTORY", "ELIMINATFD"):
@@ -266,12 +275,33 @@ pub fn discover(video: &Path, opt: &DiscoverOptions, progress: Option<SharedProg
         d.frame_times.push(t);
         let r = ocr.run_crop_sized(&frame, &full, FULL_DET_W, FULL_DET_H)?;
         let (w, h) = (frame.width() as f32, frame.height() as f32);
+        let mut seen_here: Vec<String> = Vec::new();
         for b in r.boxes {
             let text = b.text.trim().to_string();
             if text.chars().filter(|c| c.is_alphanumeric()).count() < 2 {
                 continue;
             }
+            seen_here.push(text.to_uppercase());
             d.detections.push(Detection { frame: idx, bbox: [b.x0 as f32 / w, b.y0 as f32 / h, b.x1 as f32 / w, b.y1 as f32 / h], text });
+        }
+        // Reading the whole screen at once misses very large, thin text (results screens like
+        // VICTORY get merged with what's around them). Every few seconds, also read each quarter of
+        // the screen at twice the detail; those screens stay up long enough to be caught.
+        if idx % QUARTER_EVERY == 0 {
+            for q in QUARTERS {
+                let tile = crate::tools::adhoc_crop("quarter", q, 5, 80, 8, "");
+                let (ox, oy, _, _) = crate::ocr::crop_rect(frame.width(), frame.height(), &q);
+                let r = ocr.run_crop_sized(&frame, &tile, FULL_DET_W, FULL_DET_H)?;
+                for b in r.boxes {
+                    let text = b.text.trim().to_string();
+                    if text.chars().filter(|c| c.is_alphanumeric()).count() < 3 || seen_here.contains(&text.to_uppercase()) {
+                        continue;
+                    }
+                    seen_here.push(text.to_uppercase());
+                    let bb = [(b.x0 + ox) as f32 / w, (b.y0 + oy) as f32 / h, (b.x1 + ox) as f32 / w, (b.y1 + oy) as f32 / h];
+                    d.detections.push(Detection { frame: idx, bbox: bb, text });
+                }
+            }
         }
         let small = imageops::resize(&frame, 960, (960.0 * h / w) as u32, imageops::FilterType::Triangle);
         small.save(frames_dir.join(format!("frame_{idx:06}.jpg")))?;
@@ -321,6 +351,32 @@ pub struct GeneratedCrop {
     pub margin: i32,
 }
 
+/// Group text boxes by where they are on screen; returns the clusters worth reading (at least
+/// 3 boxes and 15% of all), largest first. Always returns at least the biggest one.
+fn clusters(boxes: &[[f32; 4]]) -> Vec<Vec<[f32; 4]>> {
+    let c = |b: &[f32; 4]| ((b[0] + b[2]) / 2.0, (b[1] + b[3]) / 2.0);
+    let mut cl: Vec<((f32, f32), Vec<[f32; 4]>)> = Vec::new();
+    for b in boxes {
+        let (x, y) = c(b);
+        match cl.iter_mut().find(|(m, _)| (m.0 - x).abs() < 0.07 && (m.1 - y).abs() < 0.07) {
+            Some((m, v)) => {
+                v.push(*b);
+                let n = v.len() as f32;
+                *m = (m.0 + (x - m.0) / n, m.1 + (y - m.1) / n);
+            }
+            None => cl.push(((x, y), vec![*b])),
+        }
+    }
+    cl.sort_by_key(|(_, v)| std::cmp::Reverse(v.len()));
+    let total = boxes.len().max(1);
+    let keep: Vec<Vec<[f32; 4]>> = cl.iter().filter(|(_, v)| v.len() >= 3 && v.len() * 100 >= total * 15).map(|(_, v)| v.clone()).collect();
+    if keep.is_empty() {
+        cl.into_iter().take(1).map(|(_, v)| v).collect()
+    } else {
+        keep
+    }
+}
+
 fn expand(b: [f32; 4]) -> [f32; 4] {
     let w = b[2] - b[0];
     let h = b[3] - b[1];
@@ -331,6 +387,18 @@ fn expand(b: [f32; 4]) -> [f32; 4] {
 
 fn overlaps(a: &[f32; 4], b: &[f32; 4]) -> bool {
     a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3]
+}
+
+/// "oneShotOneKill" -> "One Shot One Kill"
+fn spaced_name(ev: &str) -> String {
+    let mut out = String::new();
+    for (i, ch) in ev.chars().enumerate() {
+        if i > 0 && ch.is_ascii_uppercase() {
+            out.push(' ');
+        }
+        out.push(if i == 0 { ch.to_ascii_uppercase() } else { ch });
+    }
+    out
 }
 
 fn ucfirst(s: &str) -> String {
@@ -375,15 +443,21 @@ pub fn build_game(d: &Discovery, rules: &[Rule], games_dir: &Path, id: &str, nam
             bail!("rule for '{}' has no text selected", r.event);
         }
         let boxes: Vec<[f32; 4]> = gs.iter().flat_map(|g| g.detections.iter().map(|i| d.detections[*i].bbox)).collect();
-        let region = boxes.iter().fold(boxes[0], |a, b| union(a, *b));
         let mut words: Vec<String> = if r.words.is_empty() { gs.iter().map(|g| g.word.clone()).collect() } else { r.words.iter().map(|w| w.to_uppercase()).collect() };
         words.dedup();
-        rs.push(R { rule: r, region: expand(region), boxes, words });
+        // the places on screen where this text really shows up: one union of every occurrence
+        // easily covers the whole screen (a word also seen in a scoreboard or a menu), so cluster
+        // the occurrences and keep the places that hold a real share of them
+        for cl in clusters(&boxes) {
+            let region = cl.iter().fold(cl[0], |a, b| union(a, *b));
+            rs.push(R { rule: r, region: expand(region), boxes: cl, words: words.clone() });
+        }
     }
     // 2. merge overlapping regions into shared crops
     let mut crops: Vec<(GeneratedCrop, Vec<usize>, Vec<[f32; 4]>)> = Vec::new();
     for (i, r) in rs.iter().enumerate() {
-        match crops.iter_mut().find(|c| overlaps(&c.0.coords, &r.region)) {
+        let area = |b: &[f32; 4]| (b[2] - b[0]) * (b[3] - b[1]);
+        match crops.iter_mut().find(|c| overlaps(&c.0.coords, &r.region) && area(&union(c.0.coords, r.region)) < 0.2) {
             Some(c) => {
                 c.0.coords = union(c.0.coords, r.region);
                 c.1.push(i);
@@ -447,7 +521,7 @@ pub fn build_game(d: &Discovery, rules: &[Rule], games_dir: &Path, id: &str, nam
                     json!({"name": ev, "icon": if is_end { "overall-victory" } else { "generic-event" }, "tooltip": format!("When {} appears on screen.", r.words.join(" / ")), "eventScore": 10,
                            "automontage": {"primary": !is_end, "secondary": is_end, "offsetBefore": 2, "offsetAfter": 2, "effectTypes": []}})
                 });
-                let dn = r.rule.display_name.clone().or_else(|| e["displayName"].as_str().map(String::from)).unwrap_or_else(|| ucfirst(ev));
+                let dn = r.rule.display_name.clone().or_else(|| e["displayName"].as_str().map(String::from)).unwrap_or_else(|| spaced_name(ev));
                 e["displayName"] = json!(dn);
                 e["default"] = json!(true);
                 e["instruction"] = json!(format!("* {dn} *"));
