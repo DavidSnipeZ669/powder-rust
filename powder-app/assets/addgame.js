@@ -61,11 +61,13 @@
       <div class="pwrs-field"><label>What to do</label><select id="pwrs-mode" style="width:100%;box-sizing:border-box;border:1px solid #8884;border-radius:12px;padding:11px 12px;font:inherit;font-size:14px;background:transparent;color:inherit"><option value="">${model ? 'New game (adds the game, then makes its model)' : 'Add a new game'}</option></select>
         <p class="sub" id="pwrs-modehint" style="margin:8px 0 0;display:none">The new video is scanned and combined with this game's earlier videos, so events your first video didn't show get detected too. Your own event edits are kept. The video also counts as analysed.</p></div>
       <div class="pwrs-field" id="pwrs-titlebox"><label>Game title or Steam link</label><input id="pwrs-title" placeholder="e.g. Delta Force  or  https://store.steampowered.com/app/2507950/Delta_Force/"></div>
-      <div class="pwrs-field"><label>Gameplay video</label><div class="pwrs-row"><div class="pwrs-file" id="pwrs-file">No video selected</div><button class="pwrs-btn" id="pwrs-pick">Choose video</button></div></div>
+      <div class="pwrs-field"><label>Gameplay video</label><div class="pwrs-row"><div class="pwrs-file" id="pwrs-file">No video selected</div><button class="pwrs-btn" id="pwrs-pick">Choose video</button></div>
+        <input id="pwrs-url" placeholder="...or paste a YouTube link (it's downloaded first)" style="margin-top:8px"></div>
       <div class="pwrs-status" id="pwrs-status"></div>
       <div class="pwrs-log" id="pwrs-log"></div>
       <div class="pwrs-after" id="pwrs-after" style="display:none;margin-top:12px;gap:10px;flex-wrap:wrap"></div>
       <a class="pwrs-link" id="pwrs-editlink" style="margin-top:12px">Edit the events of a game you already added…</a>
+      ${model ? '<a class="pwrs-link" id="pwrs-recheck" style="margin-top:12px;display:none">Re-check this game\'s pictures and retrain (no new video)</a><a class="pwrs-link" id="pwrs-restore" style="margin-top:6px;display:none">I sorted the pictures myself: undo the checks and lock my folders</a>' : ''}
       <div class="pwrs-actions"><button class="pwrs-btn" id="pwrs-close">Close</button><button class="pwrs-btn primary" id="pwrs-apply">Apply</button></div>
     </div>`
     // use Powder's own font (it is set on the app container, not on <body>)
@@ -77,7 +79,28 @@
     get('/__pw/x/edit-list').then((games) => {
       for (const g of games) { const op = document.createElement('option'); op.value = g.id; op.textContent = (model ? 'Train the "' + g.name + '" model with another video' : 'Improve "' + g.name + '" with another video'); $('pwrs-mode').appendChild(op) }
     })
-    $('pwrs-mode').onchange = () => { const add = !!$('pwrs-mode').value; $('pwrs-titlebox').style.display = add ? 'none' : ''; $('pwrs-modehint').style.display = add ? '' : 'none' }
+    $('pwrs-mode').onchange = () => { const add = !!$('pwrs-mode').value; $('pwrs-titlebox').style.display = add ? 'none' : ''; $('pwrs-modehint').style.display = add ? '' : 'none'; if ($('pwrs-recheck')) $('pwrs-recheck').style.display = add ? '' : 'none'; if ($('pwrs-restore')) $('pwrs-restore').style.display = add ? '' : 'none' }
+    if (model) $('pwrs-restore').onclick = async () => {
+      const id = $('pwrs-mode').value
+      if (!id) return
+      const r = await post('/__pw/x/model-restore', { id })
+      $('pwrs-status').textContent = r.ok ? r.message + '. Click "Re-check... and retrain" to train with them.' : 'Could not undo: ' + r.error
+    }
+    if (model) $('pwrs-recheck').onclick = async () => {
+      const id = $('pwrs-mode').value
+      if (!id) return
+      $('pwrs-apply').disabled = true; $('pwrs-log').style.display = 'block'
+      $('pwrs-status').textContent = 'Checking every picture again (this takes a while the first time)...'
+      await post('/__pw/x/model-retrain', { id })
+      const tick = async () => {
+        const s = await get('/__pw/x/addgame')
+        $('pwrs-log').textContent = s.log.join('\n'); $('pwrs-log').scrollTop = 1e9
+        if (s.running) return setTimeout(tick, 800)
+        $('pwrs-apply').disabled = false
+        $('pwrs-status').textContent = s.error ? 'Could not retrain: ' + s.error : 'Done. Wrong pictures were moved to the right event; unclear ones are in the _review folder (not used).'
+      }
+      tick()
+    }
     if (model) {
       get('/__pw/x/datasets').then((d) => { if (d && d.path) $('pwrs-dspath').textContent = '(' + d.path + ')' })
       $('pwrs-dsopen').onclick = () => post('/__pw/x/datasets-open')
@@ -93,7 +116,9 @@
       const title = $('pwrs-title').value.trim()
       const addTo = $('pwrs-mode').value
       if (!title && !addTo) { $('pwrs-status').textContent = 'Enter the game title or its Steam link.'; return }
-      if (!video) { $('pwrs-status').textContent = 'Choose a gameplay video.'; return }
+      const url = $('pwrs-url').value.trim()
+      if (url) video = url
+      if (!video) { $('pwrs-status').textContent = 'Choose a gameplay video or paste a YouTube link.'; return }
       $('pwrs-apply').disabled = true; $('pwrs-pick').disabled = true
       $('pwrs-log').style.display = 'block'
       $('pwrs-status').textContent = 'Working... this takes a few minutes for a long video.'

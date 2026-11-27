@@ -665,7 +665,7 @@ pub fn make_full(src: &Path, out: &Path) -> Result<()> {
     }
     // the AI downloads too, when this PC already has them (so Rewind-Full needs no internet at all)
     let eng = engine_dir();
-    for rel in ["onnxruntime.dll", "onnxruntime_providers_shared.dll", "DirectML.dll", "models/ocr/det.onnx", "models/ocr/rec.onnx"] {
+    for rel in ["onnxruntime.dll", "onnxruntime_providers_shared.dll", "DirectML.dll", "models/ocr/det.onnx", "models/ocr/rec.onnx", "models/vision/dinov2-small.onnx"] {
         if let Ok(b) = std::fs::read(eng.join(rel)) {
             z.start_file(format!("Engine/{rel}"), opt)?;
             z.write_all(&b)?;
@@ -822,6 +822,12 @@ fn engine_downloads() -> Result<()> {
         if !ocr.join(local).exists() {
             download(&format!("{OCR_BASE}/{remote}"), &ocr.join(local), "Downloading text-detection models (PaddleOCR)")?;
         }
+    }
+    // image network for Model Creation (DINOv2-small); the engine also fetches it on first use
+    let vision = dir.join("models").join("vision");
+    std::fs::create_dir_all(&vision)?;
+    if !vision.join("dinov2-small.onnx").exists() {
+        download("https://huggingface.co/Xenova/dinov2-small/resolve/main/onnx/model.onnx", &vision.join("dinov2-small.onnx"), "Downloading the image model for Model Creation (DINOv2)")?;
     }
     let _ = std::fs::remove_dir_all(&tmp);
     Ok(())

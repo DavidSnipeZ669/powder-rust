@@ -494,6 +494,33 @@ pub fn build_game(d: &Discovery, rules: &[Rule], games_dir: &Path, id: &str, nam
             c.name, c.coords[0], c.coords[1], c.coords[2], c.coords[3], c.dilate, c.min_area, c.margin
         );
     }
+    // longer texts seen in the video that contain a detector's word ("KILL CONFIRMED" for KILL),
+    // plus other detectors' phrases ("DOUBLE KILL"): listed as `exclude` so they can't trigger it
+    // (only texts that stay on screen - a mode name like KILL CONFIRMED - not short popups,
+    // which are often the event itself: HEADSHOT KILL is still a headshot)
+    let mut seen: Vec<(Vec<String>, std::collections::BTreeSet<usize>)> = Vec::new();
+    for det in &d.detections {
+        let t = tokens(&det.text);
+        if t.is_empty() { continue; }
+        match seen.iter_mut().find(|x| x.0 == t) { Some(x) => { x.1.insert(det.frame); } None => seen.push((t, [det.frame].into_iter().collect())) }
+    }
+    let nframes = d.frame_times.len().max(1);
+    let steady: Vec<Vec<String>> = seen.iter().filter(|x| x.1.len() * 10 >= nframes).map(|x| x.0.clone()).collect();
+    let all_words: Vec<String> = rs.iter().flat_map(|r| r.words.clone()).collect();
+    let exclude_for = |words: &[String]| -> Vec<String> {
+        let mut out: Vec<String> = Vec::new();
+        let cands: Vec<Vec<String>> = all_words.iter().map(|x| tokens(x)).chain(steady.iter().cloned()).collect();
+        for c in &cands {
+            for w in words {
+                let wt = tokens(w);
+                if !wt.is_empty() && c.len() > wt.len() && c.windows(wt.len()).any(|win| win == wt.as_slice()) && !words.iter().any(|o| &tokens(o) == c) {
+                    let j = c.join(" ");
+                    if !out.contains(&j) && out.len() < 40 { out.push(j); }
+                }
+            }
+        }
+        out
+    };
     let mut det_lua = String::new();
     let mut specs: Vec<String> = Vec::new();
     let mut events = Vec::new();
@@ -510,9 +537,10 @@ pub fn build_game(d: &Discovery, rules: &[Rule], games_dir: &Path, id: &str, nam
             let score = if longest <= 4 { 85 } else { 78 };
             let quoted: Vec<String> = r.words.iter().map(|w| format!("\"{}\"", w.replace('"', ""))).collect();
             det_lua += &format!(
-                "    {{ event = \"{ev}\", crop = \"{}\", match = {{ {} }}, score = {score}, visible = {visible}, offset = {offset}, priority = {longest} }},\n",
+                "    {{ event = \"{ev}\", crop = \"{}\", match = {{ {} }}, exclude = {{ {} }}, score = {score}, visible = {visible}, offset = {offset}, priority = {longest} }},\n",
                 c.name,
-                quoted.join(", ")
+                quoted.join(", "),
+                exclude_for(&r.words).iter().map(|x| format!("\"{}\"", x.replace('"', ""))).collect::<Vec<_>>().join(", ")
             );
             if !specs.iter().any(|s| s.starts_with(&format!("    {ev} = "))) {
                 let merge = if is_end { 10.0 } else if lower.contains("double") || lower.contains("triple") || lower.contains("quadra") || lower.contains("penta") { 4.0 } else { 2.0 };
@@ -523,6 +551,7 @@ pub fn build_game(d: &Discovery, rules: &[Rule], games_dir: &Path, id: &str, nam
                 });
                 let dn = r.rule.display_name.clone().or_else(|| e["displayName"].as_str().map(String::from)).unwrap_or_else(|| spaced_name(ev));
                 e["displayName"] = json!(dn);
+                e["automontage"] = clip_policy(ev, &dn);
                 e["default"] = json!(true);
                 e["instruction"] = json!(format!("* {dn} *"));
                 events.push(e);
@@ -585,4 +614,27 @@ pub fn load_all(work: &Path) -> Vec<Discovery> {
 
 pub fn load(path: &Path) -> Result<Discovery> {
     serde_json::from_str(&std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?).context("parsing discovery.json")
+}
+
+/// How an event is used in auto-montages: kills, medals, streaks and the like are the highlights
+/// (clip from ~7 s before the first to ~7 s after the last; events this close together join into
+/// one clip). Wins/assists only fill in, deaths are never highlights.
+pub fn clip_policy(name: &str, display: &str) -> serde_json::Value {
+    let l = format!("{} {}", name, display).to_lowercase();
+    let has = |ks: &[&str]| ks.iter().any(|k| l.contains(k));
+    let (primary, secondary, before, after) = if has(&["victory", "defeat", "win", "lose", "result"]) {
+        (false, true, 3, 5)
+    } else if has(&["death", "killed by", "killedby", "eliminated by", "downed", "respawn", "spectat"]) {
+        (false, false, 2, 2)
+    } else if has(&["assist", "level", "xp", "others", "objective", "capture"]) {
+        (false, true, 5, 5)
+    } else {
+        (true, false, 7, 7)
+    };
+    serde_json::json!({"primary": primary, "secondary": secondary, "offsetBefore": before, "offsetAfter": after, "effectTypes": []})
+}
+
+/// Words of an OCR text for whole-word matching: upper case, numbers ("+100") dropped.
+pub fn tokens(s: &str) -> Vec<String> {
+    s.to_uppercase().split(|c: char| !(c.is_alphanumeric() || c == '\'')).filter(|w| !w.is_empty() && !w.chars().all(|c| c.is_ascii_digit())).map(String::from).collect()
 }

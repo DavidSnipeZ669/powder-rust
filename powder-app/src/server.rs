@@ -107,6 +107,8 @@ fn handle(ctx: &Ctx, req: Request) {
             ("edit-load", "POST") => crate::features::gameedit::load(v["id"].as_str().unwrap_or("")),
             ("edit-save", "POST") => crate::features::gameedit::save(v["id"].as_str().unwrap_or(""), &v["rows"]),
             ("edit-reset", "POST") => crate::features::gameedit::reset(v["id"].as_str().unwrap_or("")),
+            ("model-restore", "POST") => crate::features::customgame::restore(v["id"].as_str().unwrap_or("")),
+            ("model-retrain", "POST") => crate::features::customgame::retrain(v["id"].as_str().unwrap_or("")),
             ("datasets", "GET") => serde_json::json!({"path": crate::features::gameedit::datasets_dir().display().to_string()}),
             ("datasets-open", "POST") => {
                 let d = crate::features::gameedit::datasets_dir();

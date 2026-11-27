@@ -40,6 +40,13 @@ pub fn to_json(src: &str) -> Result<Value> {
                 out.push('"');
                 i += 1;
             }
+            // comments (Rewind's engine marks the games it installs with /*powder-rs:ID*/)
+            b'/' if i + 1 < b.len() && b[i + 1] == b'*' => {
+                i = src[i + 2..].find("*/").map(|k| i + 2 + k + 2).unwrap_or(b.len());
+            }
+            b'/' if i + 1 < b.len() && b[i + 1] == b'/' => {
+                i = src[i..].find('\n').map(|k| i + k + 1).unwrap_or(b.len());
+            }
             b'!' if i + 1 < b.len() && (b[i + 1] == b'0' || b[i + 1] == b'1') => {
                 out.push_str(if b[i + 1] == b'0' { "true" } else { "false" });
                 i += 2;
@@ -79,6 +86,16 @@ pub fn to_json(src: &str) -> Result<Value> {
                         }
                     }
                 }
+            }
+            // tolerate the stray commas left where a commented-out entry was
+            b',' if matches!(out.trim_end().chars().last(), Some(',') | Some('{') | Some('[')) => {
+                i += 1;
+            }
+            b'}' | b']' if out.trim_end().ends_with(',') => {
+                let t = out.trim_end().len() - 1;
+                out.truncate(t);
+                out.push(c as char);
+                i += 1;
             }
             _ => {
                 out.push(c as char);
@@ -122,4 +139,14 @@ pub fn balanced(src: &str, start: usize) -> Option<usize> {
         i += 1;
     }
     None
+}
+
+#[cfg(test)]
+mod comment_tests {
+    #[test]
+    fn skips_engine_markers() {
+        let v = super::to_json(r#"{A:{x:!0},/*powder-rs:CDMW4*/,"CDMW4":{y:1}/*/powder-rs:CDMW4*/}"#).unwrap();
+        assert_eq!(v["CDMW4"]["y"], 1);
+        assert_eq!(v["A"]["x"], true);
+    }
 }

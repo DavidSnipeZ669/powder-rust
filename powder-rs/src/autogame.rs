@@ -367,7 +367,31 @@ pub fn steam_artwork(app_id: &str, assets: &Path) -> Result<()> {
             }
         }
     }
+    steam_icon(app_id, assets);
     Ok(())
+}
+
+/// The small square game icon (shown in the game list). It isn't in the store API, but the store
+/// page links it as community_assets/images/apps/<id>/<hash>.jpg.
+pub fn steam_icon(app_id: &str, assets: &Path) -> bool {
+    use std::io::Read;
+    let page = ureq::get(&format!("https://store.steampowered.com/app/{app_id}/?l=english"))
+        // past the age check that mature games (e.g. Call of Duty) show first
+        .set("Cookie", "birthtime=0; lastagecheckage=1-0-1990; wants_mature_content=1; mature_content=1")
+        .timeout(std::time::Duration::from_secs(15))
+        .call()
+        .ok()
+        .and_then(|r| r.into_string().ok());
+    let Some(page) = page else { return false };
+    let re = regex::Regex::new(&format!(r"https://[a-z.]+steamstatic\.com/[a-z_/]*(?:community_assets|steamcommunity/public)/images/apps/{app_id}/[0-9a-f]{{40}}\.jpg")).unwrap();
+    let Some(url) = re.find(&page).map(|m| m.as_str().to_string()) else { return false };
+    let Ok(r) = ureq::get(&url).timeout(std::time::Duration::from_secs(10)).call() else { return false };
+    let mut buf = Vec::new();
+    if r.into_reader().take(5_000_000).read_to_end(&mut buf).is_err() || image::load_from_memory(&buf).is_err() {
+        return false;
+    }
+    let _ = std::fs::create_dir_all(assets);
+    std::fs::write(assets.join("icon.jpg"), &buf).is_ok()
 }
 
 fn urlencode(s: &str) -> String {
@@ -427,7 +451,14 @@ pub fn add_game(o: &AddGameOptions, progress: Option<discover::SharedProgress>) 
     // Steam: explicit link/id first, otherwise search by title (both optional, need internet)
     let mut steam: Option<SteamInfo> = None;
     if o.add_to.is_some() && o.steam.is_none() {
-        // keep the existing game's Steam info and artwork
+        // keep the existing game's Steam info and artwork (but add the icon games made before it was fetched lack)
+        let gdir = o.games_dir.join(o.add_to.as_deref().unwrap_or(""));
+        let sid = std::fs::read_to_string(gdir.join("game.json")).ok().and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok()).and_then(|v| v["steamId"].as_str().map(String::from));
+        if let (Some(sid), true) = (sid, o.online) {
+            if !["png", "jpg", "webp", "svg"].iter().any(|e| gdir.join("assets").join(format!("icon.{e}")).exists()) && steam_icon(&sid, &gdir.join("assets")) {
+                say("downloaded the game's icon from Steam");
+            }
+        }
     } else if let Some(sv) = &o.steam {
         let id = parse_steam(sv).ok_or_else(|| anyhow::anyhow!("'{sv}' is not a Steam store link or app id"))?;
         say(&format!("reading Steam store page for app {id}"));

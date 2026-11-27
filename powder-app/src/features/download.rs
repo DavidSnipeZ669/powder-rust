@@ -70,9 +70,75 @@ fn kick_data(id: &str) -> Result<Value> {
     Ok(r.into_json()?)
 }
 
+/// yt-dlp: YouTube keeps changing, so the copy shipped with Powder (2025) no longer works. Rewind
+/// keeps its own up-to-date copy in engine\\yt-dlp.exe (downloaded from yt-dlp's GitHub releases,
+/// refreshed weekly) and only falls back to Powder's.
 fn ytdlp() -> Option<PathBuf> {
+    let own = crate::setup::engine_dir().join(if cfg!(windows) { "yt-dlp.exe" } else { "yt-dlp" });
+    let stale = std::fs::metadata(&own).and_then(|m| m.modified()).map(|t| t.elapsed().map(|e| e.as_secs() > 7 * 86400).unwrap_or(true)).unwrap_or(true);
+    if stale {
+        let url = if cfg!(windows) { "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe" } else { "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp" };
+        let got = (|| -> Result<()> {
+            let r = agent().get(url).set("User-Agent", "Rewind").call()?;
+            let tmp = own.with_extension("part");
+            let mut f = std::fs::File::create(&tmp)?;
+            std::io::copy(&mut std::io::Read::take(r.into_reader(), 80 << 20), &mut f)?;
+            drop(f);
+            if std::fs::metadata(&tmp)?.len() < 1 << 20 {
+                bail!("download too small");
+            }
+            std::fs::rename(&tmp, &own)?;
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let _ = std::fs::set_permissions(&own, std::fs::Permissions::from_mode(0o755));
+            }
+            Ok(())
+        })();
+        if let Err(e) = got {
+            crate::log(&format!("yt-dlp update failed: {e:#}"));
+        }
+    }
+    if own.exists() {
+        return Some(own);
+    }
     let c = super::ctx();
     [c.dist.root.join("yt-dlp.exe"), c.dist.native.join("yt-dlp.exe")].into_iter().find(|p| p.exists())
+}
+
+/// YouTube downloads with the up-to-date yt-dlp (Powder's downloader uses its old copy).
+/// H.264 is preferred (up to 1080p): Powder's analyzer and editor only decode H.264, and YouTube's
+/// default mp4 is often AV1, which fails analysis (GLOBAL) and reads as a broken/"vertical" video.
+pub fn youtube_download(url: &str, out: &std::path::Path, progress: &dyn Fn(f64, f64)) -> Result<Value> {
+    use std::io::BufRead;
+    let yt = ytdlp().context("couldn't get yt-dlp (needed for YouTube)")?;
+    let base = out.with_extension("");
+    let mut c = std::process::Command::new(&yt);
+    c.args(["--newline", "--no-playlist", "--no-warnings", "-f", "bv*+ba/b", "-S", "vcodec:h264,res:1080,acodec:aac", "--merge-output-format", "mp4", "--progress-template", "download:PRG %(progress._percent_str)s %(progress.eta)s", "-o"])
+        .arg(format!("{}.%(ext)s", base.display()));
+    if let Some(f) = crate::media::ffmpeg() {
+        c.arg("--ffmpeg-location").arg(f);
+    }
+    c.arg(url).stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped());
+    crate::gpu::HiddenExt::creation_flags_hidden(&mut c);
+    let mut child = c.spawn()?;
+    let err = child.stderr.take().unwrap();
+    let errs = std::thread::spawn(move || std::io::BufReader::new(err).lines().map_while(Result::ok).collect::<Vec<_>>());
+    for l in std::io::BufReader::new(child.stdout.take().unwrap()).lines().map_while(Result::ok) {
+        if let Some(rest) = l.trim().strip_prefix("PRG ") {
+            let mut it = rest.split_whitespace();
+            let pct = it.next().and_then(|p| p.trim_end_matches('%').parse::<f64>().ok()).unwrap_or(0.0);
+            let eta = it.next().and_then(|e| e.parse::<f64>().ok()).unwrap_or(0.0);
+            progress(pct, eta);
+        }
+    }
+    let st = child.wait()?;
+    let errs = errs.join().unwrap_or_default();
+    let file = ["mp4", "mkv", "webm"].iter().map(|e| base.with_extension(e)).find(|p| p.exists());
+    match (st.success(), file) {
+        (true, Some(f)) => Ok(json!({"outputPath": f, "fileExtension": format!(".{}", f.extension().unwrap().to_string_lossy())})),
+        _ => bail!("YouTube download failed: {}", errs.iter().rev().find(|l| l.contains("ERROR")).cloned().unwrap_or_else(|| errs.last().cloned().unwrap_or_default())),
+    }
 }
 
 fn fetch_metadata(url: &str) -> Result<Value> {
@@ -103,7 +169,7 @@ fn fetch_metadata(url: &str) -> Result<Value> {
         }
         _ => {
             // YouTube: yt-dlp (shipped with Powder) gives the same fields ytdl-core did
-            let yt = ytdlp().context("yt-dlp.exe not found in the Powder folder")?;
+            let yt = ytdlp().context("couldn't get yt-dlp (needed for YouTube)")?;
             let mut c = std::process::Command::new(yt);
             c.args(["-J", "--no-warnings", "--skip-download", url]);
             let out = crate::gpu::HiddenExt::creation_flags_hidden(&mut c).output()?;
@@ -173,6 +239,17 @@ fn download(id: &str) -> Result<Value> {
     let pid = id.to_string();
     let last = Arc::new(Mutex::new(std::time::Instant::now() - std::time::Duration::from_secs(2)));
     let r = (|| {
+        if plat == "youtube" {
+            let pid = pid.clone();
+            let last = last.clone();
+            return youtube_download(&url, &out, &move |pct, eta| {
+                let mut l = last.lock();
+                if l.elapsed().as_millis() >= 1000 {
+                    *l = std::time::Instant::now();
+                    patch(&pid, json!({"progress": pct / 100.0, "etaSeconds": eta}));
+                }
+            });
+        }
         let job = Job::start("video_downloader", vec![], input, "progress", "finished", Accel::from_settings(), move |pr| {
             let mut l = last.lock();
             if l.elapsed().as_millis() >= 1000 {

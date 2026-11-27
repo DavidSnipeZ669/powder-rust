@@ -61,6 +61,37 @@ pub fn start(title: &str, video: &str, add_to: Option<&str>, model: bool) -> Val
     let v = video.to_string();
     let add_to = add_to.filter(|s| !s.is_empty()).map(String::from);
     std::thread::spawn(move || {
+        // a YouTube link instead of a file: download it first (with the up-to-date yt-dlp)
+        let mut v = v;
+        if v.starts_with("http://") || v.starts_with("https://") {
+            push(&format!("Downloading {v} ..."));
+            let folder = super::settings::read()["downloadFolder"].as_str().map(std::path::PathBuf::from).unwrap_or_else(|| crate::setup::engine_dir().join("downloads"));
+            let _ = std::fs::create_dir_all(&folder);
+            let out = folder.join(format!("youtube-{}.mp4", super::montage::uuid()));
+            let last = std::sync::Arc::new(parking_lot::Mutex::new(0i64));
+            let l2 = last.clone();
+            match super::download::youtube_download(&v, &out, &move |pct, _eta| {
+                let p = (pct / 10.0) as i64;
+                let mut l = l2.lock();
+                if p > *l {
+                    *l = p;
+                    push(&format!("[download] {:.0}%", pct));
+                }
+            }) {
+                Ok(r) => {
+                    v = r["outputPath"].as_str().unwrap_or("").to_string();
+                    push(&format!("Downloaded to {v}"));
+                }
+                Err(e) => {
+                    push(&format!("error: {e:#}"));
+                    let mut s = status().lock();
+                    s.running = false;
+                    s.done = true;
+                    s.error = Some(format!("{e:#}"));
+                    return;
+                }
+            }
+        }
         let mut c = Command::new(&eng);
         c.current_dir(eng.parent().unwrap()).arg("add-game").arg(&v).arg("--powder").arg(&root);
         if let Some(a) = &add_to {
@@ -128,6 +159,56 @@ pub fn start(title: &str, video: &str, add_to: Option<&str>, model: bool) -> Val
         }
     });
     json!({"ok": true})
+}
+
+/// Model Creation without a new video: check (and re-sort) the game's training pictures, then retrain.
+pub fn retrain(id: &str) -> Value {
+    {
+        let mut s = status().lock();
+        if s.running {
+            return json!({"error": "already running"});
+        }
+        *s = Status { running: true, game_id: Some(id.to_string()), ..Default::default() };
+    }
+    let Some(eng) = engine() else {
+        let mut s = status().lock();
+        s.running = false;
+        s.done = true;
+        s.error = Some("The game engine is missing - run build-app.bat again.".into());
+        return json!({"ok": false});
+    };
+    let id = id.to_string();
+    std::thread::spawn(move || {
+        push("Checking the training pictures and retraining the model...");
+        let mut m = Command::new(&eng);
+        m.current_dir(eng.parent().unwrap()).arg("model-train").arg("--id").arg(&id).arg("--dir").arg(super::community::games_dir());
+        if let Some(f) = crate::media::ffmpeg() {
+            m.arg("--ffmpeg").arg(f);
+        }
+        m.stdout(Stdio::piped()).stderr(Stdio::piped());
+        crate::gpu::HiddenExt::creation_flags_hidden(&mut m);
+        let r = run_streaming(&mut m);
+        let mut s = status().lock();
+        s.running = false;
+        s.done = true;
+        if !matches!(&r, Ok(x) if x.success()) {
+            s.error = Some(s.log.iter().rev().find(|l| l.to_lowercase().contains("error")).cloned().unwrap_or_else(|| "training stopped with an error (see the log)".into()));
+        }
+    });
+    json!({"ok": true})
+}
+
+/// Undo the picture checks for a game and lock its folders as sorted by hand.
+pub fn restore(id: &str) -> Value {
+    let Some(eng) = engine() else { return json!({"ok": false, "error": "engine missing"}) };
+    let mut c = Command::new(&eng);
+    c.current_dir(eng.parent().unwrap()).arg("model-restore").arg("--id").arg(id).arg("--dir").arg(super::community::games_dir());
+    crate::gpu::HiddenExt::creation_flags_hidden(&mut c);
+    match c.output() {
+        Ok(o) if o.status.success() => json!({"ok": true, "message": String::from_utf8_lossy(&o.stdout).trim().to_string()}),
+        Ok(o) => json!({"ok": false, "error": String::from_utf8_lossy(&o.stderr).lines().last().unwrap_or("failed").to_string()}),
+        Err(e) => json!({"ok": false, "error": e.to_string()}),
+    }
 }
 
 /// run the engine, streaming its output into the log (and picking up the game id)

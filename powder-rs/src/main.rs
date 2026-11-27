@@ -66,6 +66,47 @@ struct Common {
 
 #[derive(Subcommand)]
 enum Cmd {
+    /// undo the picture checks (put every picture back where it was) and lock the folders as sorted by hand
+    ModelRestore {
+        #[arg(long)]
+        id: String,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+    },
+    /// (testing) read a pool of test pictures once for model-sim
+    #[command(hide = true)]
+    ModelSimPrepare { dir: PathBuf },
+    /// (testing) every order of the five checks, `runs` each, summarised
+    #[command(hide = true)]
+    ModelSimAll {
+        dir: PathBuf,
+        #[arg(long, default_value_t = 5)]
+        runs: u64,
+        /// only these orders (comma separated, e.g. 35124,52413); default all 120
+        #[arg(long)]
+        orders: Option<String>,
+        /// first run's seed (use a new value for fresh, independent runs)
+        #[arg(long, default_value_t = 1)]
+        seed: u64,
+        #[arg(long)]
+        mistakes: usize,
+        #[arg(long)]
+        good: usize,
+    },
+    /// (testing) simulate the five picture checks on a prepared pool
+    #[command(hide = true)]
+    ModelSim {
+        dir: PathBuf,
+        #[arg(long, default_value_t = 10)]
+        runs: u64,
+        #[arg(long)]
+        mistakes: usize,
+        #[arg(long)]
+        good: usize,
+        /// e.g. 1,2,3,4,5
+        #[arg(long)]
+        order: String,
+    },
     /// MODEL CREATION: save labelled frames from a video (events come from the game's test run on
     /// it, see add-game) into datasets/<ID>/<ID>_<event>/, then (re)train the game's .rwdmdl model
     ModelTrain {
@@ -466,7 +507,87 @@ fn run() -> Result<()> {
                 println!("report:  {}", r.display());
             }
         }
+        Cmd::ModelSimPrepare { dir } => {
+            ctx.init_ort()?;
+            let mut ocr = ocr::Ocr::load(&paths::ocr_models_dir(ctx.c.ocr_models.as_deref())?)?;
+            let phrases = vec![("kill".to_string(), vec!["KILL".to_string()]), ("doubleKill".to_string(), vec!["DOUBLE".to_string(), "KILL".to_string()])];
+            let items = rwdmdl::sim_prepare(&dir, &phrases, &mut ocr)?;
+            std::fs::write(dir.join("prepared.json"), serde_json::to_vec(&items)?)?;
+            println!("prepared {} pictures", items.len());
+        }
+        Cmd::ModelSimAll { dir, runs, mistakes, good, orders: only, seed } => {
+            let pool: Vec<rwdmdl::SimItem> = serde_json::from_slice(&std::fs::read(dir.join("prepared.json"))?)?;
+            let classes = vec!["nothing".to_string(), "kill".to_string(), "doubleKill".to_string()];
+            // the kill / double-kill detectors read the middle of the screen (where the popup is)
+            let mid = [0.25f32, 0.30, 0.75, 0.70];
+            let areas = vec![vec![], vec![mid], vec![mid]];
+            let t0 = std::time::Instant::now();
+            let nb = rwdmdl::sim_neighbours(&pool);
+            eprintln!("look-alike lists ready in {:.0}s", t0.elapsed().as_secs_f64());
+            let mut orders: Vec<Vec<u8>> = Vec::new();
+            fn perm(cur: &mut Vec<u8>, left: &mut Vec<u8>, out: &mut Vec<Vec<u8>>) {
+                if left.is_empty() { out.push(cur.clone()); return }
+                for i in 0..left.len() { let x = left.remove(i); cur.push(x); perm(cur, left, out); cur.pop(); left.insert(i, x); }
+            }
+            perm(&mut vec![], &mut vec![1, 2, 3, 4, 5], &mut orders);
+            if let Some(o) = &only {
+                orders = o.split(',').map(|x| x.trim().bytes().map(|b| b - b'0').collect()).collect();
+            }
+            let jobs: Vec<(usize, u64)> = (0..orders.len()).flat_map(|o| (seed..seed + runs).map(move |r| (o, r))).collect();
+            let results = std::sync::Mutex::new(vec![[0usize; 6]; orders.len()]);
+            let done = std::sync::atomic::AtomicUsize::new(0);
+            std::thread::scope(|sc| {
+                for t in 0..2 {
+                    let (jobs, orders, results, done, pool, nb, areas, classes) = (&jobs, &orders, &results, &done, &pool, &nb, &areas, &classes);
+                    sc.spawn(move || {
+                        for (k, &(o, r)) in jobs.iter().enumerate() {
+                            if k % 2 != t { continue }
+                            let x = rwdmdl::sim_run_fast(pool, Some(nb), areas, classes, mistakes, good, &orders[o], r);
+                            let mut g = results.lock().unwrap();
+                            for i in 0..6 { g[o][i] += x[i] }
+                            let d = done.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+                            if d % 20 == 0 { eprintln!("{d}/{} runs ({:.0}s)", jobs.len(), t0.elapsed().as_secs_f64()) }
+                        }
+                    });
+                }
+            });
+            let res = results.into_inner().unwrap();
+            let mut rows: Vec<(f64, String)> = Vec::new();
+            let mut csv = String::from("order,mistakes_fixed,mistakes_review,mistakes_missed,good_kept,good_review,good_broken,clean_pct\n");
+            for (o, x) in orders.iter().zip(res.iter()) {
+                let clean = (x[0] + x[3]) as f64 / ((x[0] + x[3] + x[2] + x[5]).max(1)) as f64 * 100.0;
+                let name: String = o.iter().map(|v| v.to_string()).collect();
+                csv += &format!("{name},{},{},{},{},{},{},{clean:.2}\n", x[0], x[1], x[2], x[3], x[4], x[5]);
+                rows.push((clean, format!("{name}  clean {clean:5.1}% | mistakes fixed {:>5} review {:>5} MISSED {:>5} | good kept {:>6} review {:>5} BROKEN {:>5}", x[0], x[1], x[2], x[3], x[4], x[5])));
+            }
+            std::fs::write(dir.join(format!("all-orders-{mistakes}-{good}.csv")), csv)?;
+            rows.sort_by(|a, b| b.0.total_cmp(&a.0));
+            println!("best 10:");
+            for r in rows.iter().take(10) { println!("  {}", r.1) }
+            if rows.len() <= 10 { return Ok(()); }
+            println!("worst 5:");
+            for r in rows.iter().rev().take(5) { println!("  {}", r.1) }
+        }
+        Cmd::ModelSim { dir, runs, mistakes, good, order } => {
+            let pool: Vec<rwdmdl::SimItem> = serde_json::from_slice(&std::fs::read(dir.join("prepared.json"))?)?;
+            let classes = vec!["nothing".to_string(), "kill".to_string(), "doubleKill".to_string()];
+            let ord: Vec<u8> = order.split(',').filter_map(|x| x.trim().parse().ok()).collect();
+            let mut tot = [0usize; 6];
+            for r in 0..runs {
+                let x = rwdmdl::sim_run(&pool, &classes, mistakes, good, &ord, r + 1);
+                println!("run {:>2}: mistakes fixed {:>4} review {:>4} MISSED {:>4} | good kept {:>4} review {:>4} BROKEN {:>4}", r + 1, x[0], x[1], x[2], x[3], x[4], x[5]);
+                for i in 0..6 { tot[i] += x[i] }
+            }
+            println!("TOTAL  : mistakes fixed {:>4} review {:>4} MISSED {:>4} | good kept {:>4} review {:>4} BROKEN {:>4}", tot[0], tot[1], tot[2], tot[3], tot[4], tot[5]);
+        }
+        Cmd::ModelRestore { id, dir } => {
+            let games_dir = dir.or_else(|| ctx.c.games.first().cloned()).unwrap_or_else(|| paths::exe_dir().join("games"));
+            let ds = rwdmdl::dataset_dir(&games_dir, &id);
+            let (moved, locked) = rwdmdl::restore_and_lock(&id, &ds)?;
+            println!("put {moved} picture(s) back where they were; {locked} picture(s) are now locked as sorted by you (the checks won't move them)");
+        }
         Cmd::ModelTrain { video, id, dir } => {
+            ctx.init_ort()?;
             let games_dir = dir.or_else(|| ctx.c.games.first().cloned()).unwrap_or_else(|| paths::exe_dir().join("games"));
             let gdir = games_dir.join(&id);
             if !gdir.join("game.json").exists() {
@@ -476,17 +597,36 @@ fn run() -> Result<()> {
             std::fs::create_dir_all(&ds)?;
             let test_path = games_dir.join("_work").join(&id).join("test.events.json");
             if let Some(v) = &video {
-                let test: serde_json::Value = serde_json::from_slice(&std::fs::read(&test_path).context("no test run for this game - run add-game on the video first")?)?;
-                let same = test["video"].as_str().map(|p| Path::new(p).file_name() == v.file_name()).unwrap_or(false);
-                if !same {
-                    bail!("the game's last test run was on another video - run add-game --add-to {id} on this video first");
-                }
+                let test: serde_json::Value = std::fs::read(&test_path).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
                 let evs: Vec<(String, f64)> = test["events"].as_array().into_iter().flatten().filter(|e| e["from_model"] != true).filter_map(|e| Some((e["name"].as_str()?.to_string(), e["time_sec"].as_f64()?))).collect();
                 eprintln!("[model] saving pictures of {} event(s) from the video", evs.len());
-                let (p, n) = rwdmdl::extract(&ctx.ffmpeg()?, v, &id, &evs, &ds)?;
+                let _ = &evs;
+                let (p, n) = rwdmdl::extract_from_scan(&games_dir.join("_work").join(&id), &gdir, v, &id, &ds)?;
                 println!("saved {p} event picture(s) and {n} \"nothing\" picture(s) to {}", ds.display());
             }
-            let m = rwdmdl::train(&id, &ds)?;
+            // the checks run in the order that left the fewest wrong pictures in simulations
+            // (5, 2, 4, 1, 3): confident learning, re-read text, position, scan text again, look-alikes
+            let _ = rwdmdl::train_opts(&id, &ds, &[5], false);
+            {
+                let libs = ctx.lua_libs()?;
+                let lib_refs: Vec<&Path> = libs.iter().map(|p| p.as_path()).collect();
+                let crops = lua_engine::GameScript::load(&gdir, &lib_refs)?.ocr_crops()?;
+                let mut ocr = ocr::Ocr::load(&paths::ocr_models_dir(ctx.c.ocr_models.as_deref())?)?;
+                let (ok, moved, review) = rwdmdl::verify(&id, &gdir, &ds, &mut ocr, &crops)?;
+                if ok + moved + review > 0 {
+                    println!("second check (text read again): {} picture(s): {ok} correct, {moved} moved to the right event, {review} unclear (moved to {id}_review, not used)", ok + moved + review);
+                }
+                let far = rwdmdl::location_check_in(&id, &ds, &rwdmdl::detector_areas(&gdir))?;
+                if far > 0 {
+                    println!("fourth check (where on screen): {far} picture(s) had the event text outside the event's detector area - moved to {id}_review");
+                }
+                let back = rwdmdl::rescan_sort(&id, &ds)?;
+                if back > 0 {
+                    println!("first check again (scan text): {back} picture(s) moved back to the event their text named");
+                }
+            }
+            let m = rwdmdl::train_opts(&id, &ds, &[3], true)?.context("no model")?;
+
             let out = gdir.join(format!("{id}.rwdmdl"));
             m.save(&out)?;
             println!("model trained on {} picture(s): {}", m.meta.trained_images, out.display());
@@ -494,7 +634,8 @@ fn run() -> Result<()> {
                 println!("  {c:<18} {:.0}% right on held-back pictures", a * 100.0);
             }
             // add what the model finds in this video to its test run (used to mark the video analysed)
-            if let Some(v) = &video {
+            let same_test = video.as_ref().map(|v| std::fs::read(&test_path).ok().and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok()).and_then(|t| t["video"].as_str().map(|p| Path::new(p).file_name() == v.file_name())).unwrap_or(false)).unwrap_or(false);
+            if let (Some(v), true) = (&video, same_test) {
                 let found = rwdmdl::detect(&ctx.ffmpeg()?, v, rwdmdl::Model::load(&out)?, None, None)?;
                 let mut test: serde_json::Value = serde_json::from_slice(&std::fs::read(&test_path)?)?;
                 let mut evs = test["events"].as_array().cloned().unwrap_or_default();
@@ -513,6 +654,7 @@ fn run() -> Result<()> {
             }
         }
         Cmd::ModelDetect { video, model, start, end } => {
+            ctx.init_ort()?;
             let found = rwdmdl::detect(&ctx.ffmpeg()?, &video, rwdmdl::Model::load(&model)?, start, end)?;
             let v: Vec<_> = found.iter().map(|(n, t)| serde_json::json!({"name": n, "time_sec": t})).collect();
             println!("{}", serde_json::to_string(&v)?);

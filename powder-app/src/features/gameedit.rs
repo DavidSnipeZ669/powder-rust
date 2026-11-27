@@ -53,6 +53,7 @@ struct Det {
     score: String,
     visible: String,
     offset: String,
+    exclude: Vec<String>,
 }
 
 fn parse_detectors(src: &str) -> Vec<Det> {
@@ -71,6 +72,7 @@ fn parse_detectors(src: &str) -> Vec<Det> {
                 score: field(&l[me..], "score").unwrap_or("80").to_string(),
                 visible: field(&l[me..], "visible").unwrap_or("0.3").to_string(),
                 offset: field(&l[me..], "offset").unwrap_or("0").to_string(),
+                exclude: l[me..].find("exclude = {").and_then(|x| { let a = me + x + 11; l[a..].find('}').map(|b| quoted(&l[a..a + b])) }).unwrap_or_default(),
             })
         })
         .collect()
@@ -203,6 +205,7 @@ fn save_inner(id: &str, rows: &Value) -> Result<usize> {
             score: prev.map(|d| d.score.clone()).unwrap_or_else(|| if longest <= 4 { "85".into() } else { "78".into() }),
             visible: prev.map(|d| d.visible.clone()).unwrap_or_else(|| "0.3".into()),
             offset: prev.map(|d| d.offset.clone()).unwrap_or_else(|| "0".into()),
+            exclude: prev.map(|d| d.exclude.clone()).unwrap_or_default(),
         };
         dets.push((d, display));
     }
@@ -221,12 +224,24 @@ fn save_inner(id: &str, rows: &Value) -> Result<usize> {
     }
 
     // DETECTORS
+    let all_words: Vec<Vec<String>> = dets.iter().flat_map(|(d, _)| d.words.iter().map(|w| tokens(w))).collect();
     let lines: String = dets
         .iter()
         .map(|(d, _)| {
             let q: Vec<String> = d.words.iter().map(|w| format!("\"{w}\"")).collect();
             let longest = d.words.iter().map(|w| w.chars().count()).max().unwrap_or(4);
-            format!("    {{ event = \"{}\", crop = \"{}\", match = {{ {} }}, score = {}, visible = {}, offset = {}, priority = {} }},\n", d.event, d.crop, q.join(", "), d.score, d.visible, d.offset, longest)
+            // other events' longer phrases that contain this one's word ("DOUBLE KILL" for KILL)
+            let own: Vec<Vec<String>> = d.words.iter().map(|w| tokens(w)).collect();
+            let mut ex: Vec<String> = d.exclude.iter().filter(|x| !own.contains(&tokens(x))).cloned().collect();
+            for c in &all_words {
+                if own.contains(c) { continue; }
+                if own.iter().any(|wt| !wt.is_empty() && c.len() > wt.len() && c.windows(wt.len()).any(|w| w == wt.as_slice())) {
+                    let j = c.join(" ");
+                    if !ex.contains(&j) { ex.push(j); }
+                }
+            }
+            let exq: Vec<String> = ex.iter().map(|w| format!("\"{}\"", w.replace('"', ""))).collect();
+            format!("    {{ event = \"{}\", crop = \"{}\", match = {{ {} }}, exclude = {{ {} }}, score = {}, visible = {}, offset = {}, priority = {} }},\n", d.event, d.crop, q.join(", "), exq.join(", "), d.score, d.visible, d.offset, longest)
         })
         .collect();
     let (s, e) = block(&src, "DETECTORS").context("DETECTORS not found in game_postprocess.lua")?;
@@ -253,6 +268,7 @@ fn save_inner(id: &str, rows: &Value) -> Result<usize> {
             .collect();
         src = format!("{}\n{}{}", &src[..s], body.trim_end_matches('\n'), &src[e..]);
     }
+    let src = upgrade_matcher(&src);
     std::fs::write(&lua_p, src)?;
 
     // events.json: keep the existing entries (icons, scores, montage settings), add new ones
@@ -270,6 +286,9 @@ fn save_inner(id: &str, rows: &Value) -> Result<usize> {
         });
         let words: Vec<String> = dets.iter().filter(|(d, _)| &d.event == n).flat_map(|(d, _)| d.words.clone()).collect();
         e["displayName"] = json!(display);
+        if e["automontage"]["custom"] != true {
+            e["automontage"] = clip_policy(n, &display);
+        }
         e["instruction"] = json!(format!("* {display} *"));
         e["tooltip"] = json!(format!("When {} appears on screen.", words.join(" / ")));
         out.push(e);
@@ -411,4 +430,41 @@ pub fn export_log(id: Option<&str>, log: &[String]) -> Value {
         Ok(p) => json!({"ok": true, "path": p.display().to_string()}),
         Err(e) => json!({"ok": false, "error": format!("{e:#}")}),
     }
+}
+
+/// How an event is used in auto-montages: kills, medals, streaks and the like are the highlights
+/// (clip from ~7 s before the first to ~7 s after the last; events this close together join into
+/// one clip). Wins/assists only fill in, deaths are never highlights.
+pub fn clip_policy(name: &str, display: &str) -> serde_json::Value {
+    let l = format!("{} {}", name, display).to_lowercase();
+    let has = |ks: &[&str]| ks.iter().any(|k| l.contains(k));
+    let (primary, secondary, before, after) = if has(&["victory", "defeat", "win", "lose", "result"]) {
+        (false, true, 3, 5)
+    } else if has(&["death", "killed by", "killedby", "eliminated by", "downed", "respawn", "spectat"]) {
+        (false, false, 2, 2)
+    } else if has(&["assist", "level", "xp", "others", "objective", "capture"]) {
+        (false, true, 5, 5)
+    } else {
+        (true, false, 7, 7)
+    };
+    serde_json::json!({"primary": primary, "secondary": secondary, "offsetBefore": before, "offsetAfter": after, "effectTypes": []})
+}
+
+fn tokens(s: &str) -> Vec<String> {
+    s.to_uppercase().split(|c: char| !(c.is_alphanumeric() || c == '\'')).filter(|w| !w.is_empty() && !w.chars().all(|c| c.is_ascii_digit())).map(String::from).collect()
+}
+
+/// Games made before whole-word matching: switch their detector loop to it ("KILL" no longer
+/// fires on "KILL CONFIRMED", "KILLS" or a player called MrsKiller).
+fn upgrade_matcher(src: &str) -> String {
+    const OLD_IF: &str = "paddle_ocr.checkValues(text, d.match, d.score)";
+    const OLD_FUT: &str = "paddle_ocr.checkFuture(frameIndex, need - 1, cropName, d.match, d.score)";
+    if src.contains("local function rwMatch") || !src.contains(OLD_IF) {
+        return src.to_string();
+    }
+    let mut s = src.replace(OLD_IF, "rwMatch(text, d)").replace(OLD_FUT, "rwMatchFuture(cues, frameIndex, need - 1, cropName, d)");
+    let lua = include_str!("rwmatch.lua");
+    let at = s.find("local function frames(").or_else(|| s.find("local get_fps")).unwrap_or(0);
+    s.insert_str(at, &format!("{lua}\n"));
+    s
 }
