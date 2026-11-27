@@ -134,6 +134,9 @@ enum Cmd {
         /// reuse the previous text scan of the same video (fast re-runs)
         #[arg(long)]
         reuse_scan: bool,
+        /// improve an existing game (its id) with this video instead of creating a new game
+        #[arg(long = "add-to")]
+        add_to: Option<String>,
     },
     /// Auto mode step 1: read ALL on-screen text in a video and group repeats
     Discover {
@@ -441,12 +444,12 @@ fn run() -> Result<()> {
                 println!("report:  {}", r.display());
             }
         }
-        Cmd::AddGame { title, steam, video, game_files, rate, scan_fps, no_install, powder, offline, dir, overwrite, reuse_scan } => {
+        Cmd::AddGame { title, steam, video, game_files, rate, scan_fps, no_install, powder, offline, dir, overwrite, reuse_scan, add_to } => {
             ctx.init_ort()?;
             let (fps, _) = rate.settings()?;
             let games_dir = dir.or_else(|| ctx.c.games.first().cloned()).unwrap_or_else(|| paths::exe_dir().join("games"));
             std::fs::create_dir_all(&games_dir)?;
-            if title.trim().is_empty() && steam.is_none() {
+            if title.trim().is_empty() && steam.is_none() && add_to.is_none() {
                 bail!("give --title \"Game Name\" and/or --steam <store link>");
             }
             let o = autogame::AddGameOptions {
@@ -473,8 +476,9 @@ fn run() -> Result<()> {
                     }
                 },
                 work_dir: games_dir.join("_work"),
-                overwrite,
+                overwrite: overwrite || add_to.is_some(),
                 reuse_scan,
+                add_to,
             };
             let r = autogame::add_game(&o, None)?;
             println!("\nadded {} ({}) -> {}", r.title, r.id, r.dir);

@@ -119,6 +119,10 @@ fn generate(id: &str) -> Result<Value> {
     Ok(Value::Object(out))
 }
 
+pub fn start_for(id: &str) -> Result<Value> {
+    start(id.to_string())
+}
+
 fn start(id: String) -> Result<Value> {
     set_task(&id, Some(json!({"progress": 0, "etaSeconds": 0, "status": "GENERATING", "result": null, "paused": false})));
     running().lock().insert(id.clone(), (vec![], Arc::new(AtomicBool::new(false))));

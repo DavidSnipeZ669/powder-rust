@@ -277,8 +277,40 @@ fn save_inner(id: &str, rows: &Value) -> Result<usize> {
     evj["events"] = json!(out);
     std::fs::write(&ev_p, serde_json::to_string_pretty(&evj)?)?;
 
+    // remember what the person changed, so improving the game with another video keeps it
+    let baseline: Vec<String> = std::fs::read_to_string(bak.join("game_postprocess.lua")).map(|s| parse_detectors(&s).into_iter().map(|d| d.event).collect()).unwrap_or_default();
+    let rows_json: Vec<Value> = dets.iter().map(|(d, dn)| json!({"event": d.event, "displayName": dn, "area": d.crop, "words": d.words})).collect();
+    let _ = std::fs::write(dir.join("my-edits.json"), serde_json::to_vec_pretty(&json!({"baseline": baseline, "rows": rows_json}))?);
+
     reinstall(id)?;
     Ok(names.len())
+}
+
+/// After a game is rebuilt from more videos: apply the person's earlier edits on top of the new
+/// automatic version (events they removed stay removed, their rows replace the automatic ones).
+pub fn reapply(id: &str) -> Result<bool> {
+    let dir = pack_dir(id)?;
+    let Ok(b) = std::fs::read(dir.join("my-edits.json")) else { return Ok(false) };
+    let edits: Value = serde_json::from_slice(&b)?;
+    let rows = edits["rows"].as_array().cloned().unwrap_or_default();
+    let baseline: Vec<String> = edits["baseline"].as_array().map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect()).unwrap_or_default();
+    let mine: Vec<String> = rows.iter().filter_map(|r| r["event"].as_str().map(String::from)).collect();
+    let removed: Vec<&String> = baseline.iter().filter(|e| !mine.contains(e)).collect();
+    let src = std::fs::read_to_string(dir.join("game_postprocess.lua"))?;
+    let events: Value = serde_json::from_slice(&std::fs::read(dir.join("events.json")).unwrap_or_default()).unwrap_or(json!({}));
+    let display = |ev: &str| events["events"].as_array().and_then(|a| a.iter().find(|e| e["name"] == ev)).and_then(|e| e["displayName"].as_str().map(String::from)).unwrap_or_else(|| ev.to_string());
+    let mut out = rows.clone();
+    for d in parse_detectors(&src) {
+        if removed.contains(&&d.event) || mine.contains(&d.event) {
+            continue;
+        }
+        out.push(json!({"event": d.event, "displayName": display(&d.event), "area": d.crop, "words": d.words}));
+    }
+    // the rebuilt automatic version becomes the new "undo" point
+    let bak = dir.join(".original");
+    let _ = std::fs::remove_dir_all(&bak);
+    save_inner(id, &Value::Array(out))?;
+    Ok(true)
 }
 
 /// Put back the version Add Game made.

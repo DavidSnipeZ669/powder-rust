@@ -95,7 +95,7 @@ fn handle(ctx: &Ctx, req: Request) {
         let v: Value = serde_json::from_slice(&req.body).unwrap_or(Value::Null);
         let out = match (rest, req.method.as_str()) {
             ("pick-video", _) => serde_json::json!({"path": crate::dialogs::pick("video")}),
-            ("addgame", "POST") => crate::features::customgame::start(v["title"].as_str().unwrap_or(""), v["video"].as_str().unwrap_or("")),
+            ("addgame", "POST") => crate::features::customgame::start(v["title"].as_str().unwrap_or(""), v["video"].as_str().unwrap_or(""), v["addTo"].as_str()),
             ("addgame", _) => crate::features::customgame::status_json(),
             ("share-game", "POST") => crate::features::community::share(v["id"].as_str().unwrap_or("")),
             ("export-log", "POST") => {

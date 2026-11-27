@@ -409,6 +409,9 @@ pub struct AddGameOptions {
     pub work_dir: PathBuf,
     pub overwrite: bool,
     pub reuse_scan: bool,
+    /// improve this existing game with another video: its earlier scans are combined with the
+    /// new one and the game is rebuilt from all of them
+    pub add_to: Option<String>,
 }
 
 pub fn add_game(o: &AddGameOptions, progress: Option<discover::SharedProgress>) -> Result<AddGameReport> {
@@ -423,7 +426,9 @@ pub fn add_game(o: &AddGameOptions, progress: Option<discover::SharedProgress>) 
     };
     // Steam: explicit link/id first, otherwise search by title (both optional, need internet)
     let mut steam: Option<SteamInfo> = None;
-    if let Some(sv) = &o.steam {
+    if o.add_to.is_some() && o.steam.is_none() {
+        // keep the existing game's Steam info and artwork
+    } else if let Some(sv) = &o.steam {
         let id = parse_steam(sv).ok_or_else(|| anyhow::anyhow!("'{sv}' is not a Steam store link or app id"))?;
         say(&format!("reading Steam store page for app {id}"));
         steam = steam_details(&id).or(Some(SteamInfo { app_id: id, ..Default::default() }));
@@ -431,13 +436,24 @@ pub fn add_game(o: &AddGameOptions, progress: Option<discover::SharedProgress>) 
         say("looking up the game on Steam");
         steam = steam_lookup(&o.title);
     }
-    let title = if !o.title.trim().is_empty() {
+    let existing_name = o.add_to.as_ref().and_then(|id| std::fs::read_to_string(o.games_dir.join(id).join("game.json")).ok()).and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok()).and_then(|v| v["name"].as_str().map(String::from));
+    let title = if let Some(n) = existing_name {
+        n
+    } else if !o.title.trim().is_empty() {
         o.title.trim().to_string()
     } else {
         steam.as_ref().map(|s| s.name.clone()).filter(|n| !n.is_empty()).ok_or_else(|| anyhow::anyhow!("give a title (or a Steam link we can read the name from)"))?
     };
     let taken: Vec<String> = crate::game::list_games(&[o.games_dir.clone()]).into_iter().map(|g| g.id).collect();
-    let id = make_id(&title, &if o.overwrite { vec![] } else { taken });
+    let id = match &o.add_to {
+        Some(existing) => {
+            if !o.games_dir.join(existing).join("game_postprocess.lua").exists() {
+                bail!("there is no game {existing} to add to");
+            }
+            existing.clone()
+        }
+        None => make_id(&title, &if o.overwrite { vec![] } else { taken }),
+    };
     let mut rep = AddGameReport { id: id.clone(), title: title.clone(), ..Default::default() };
 
     let info = crate::video::probe(&o.ffmpeg, &o.video)?;
@@ -447,9 +463,18 @@ pub fn add_game(o: &AddGameOptions, progress: Option<discover::SharedProgress>) 
     }
     let (eff, why) = scan_fps.effective(&info, o.scan_fps_default);
     say(&format!("scanning video for text ({why})"));
-    let dopt = discover::DiscoverOptions { ffmpeg: o.ffmpeg.clone(), ocr_models: o.ocr_models.clone(), fps: eff, start: None, end: None, out_dir: o.work_dir.join(&id) };
+    // extra videos of an existing game get their own scan folder; the game is built from all
+    let scan_dir = match &o.add_to {
+        Some(_) => {
+            let stem: String = o.video.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default().chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '_' }).take(40).collect();
+            let size = std::fs::metadata(&o.video).map(|m| m.len()).unwrap_or(0);
+            o.work_dir.join(&id).join("videos").join(format!("{stem}_{size:x}"))
+        }
+        None => o.work_dir.join(&id),
+    };
+    let dopt = discover::DiscoverOptions { ffmpeg: o.ffmpeg.clone(), ocr_models: o.ocr_models.clone(), fps: eff, start: None, end: None, out_dir: scan_dir.clone() };
     // reuse an earlier scan of the same video at the same rate (re-running after tweaks is instant)
-    let cached = o.work_dir.join(&id).join("discovery.json");
+    let cached = scan_dir.join("discovery.json");
     let d = match discover::load(&cached) {
         Ok(c) if c.video == o.video.display().to_string() && (c.fps - eff).abs() < 1e-6 && o.reuse_scan => {
             say("reusing previous scan of this video");
@@ -458,6 +483,13 @@ pub fn add_game(o: &AddGameOptions, progress: Option<discover::SharedProgress>) 
             c
         }
         _ => discover::discover(&o.video, &dopt, progress.clone())?,
+    };
+    let d = if o.add_to.is_some() {
+        let all = discover::load_all(&o.work_dir.join(&id));
+        say(&format!("combining {} videos of this game", all.len()));
+        discover::combine(all).unwrap_or(d)
+    } else {
+        d
     };
 
     let vocab = match &o.game_files {

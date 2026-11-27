@@ -249,6 +249,7 @@ fn handle(st: &mut State, m: &Method, path: &str, q: &str, body: &[u8]) -> Resul
                 work_dir: st.games_dir.join("_work"),
                 overwrite: true,
                 reuse_scan: v["reuseScan"].as_bool().unwrap_or(false),
+                add_to: None,
             };
             if o.title.trim().is_empty() && o.steam.is_none() {
                 anyhow::bail!("enter the game title (or a Steam store link)");

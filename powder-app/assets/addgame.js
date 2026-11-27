@@ -40,6 +40,8 @@
   .theme__dark .pwrs-ev input,.theme__dark .pwrs-ev select{background:#151515;border-color:#3a3a3a;color:#eee}
   .theme__dark .pwrs-chip{background:#3a3a3a}
   .theme__dark .pwrs-chip:hover{background:#474747}
+  .pwrs-modal select option{background:#fff;color:#111}
+  .theme__dark .pwrs-modal select option{background:#1f1f1f;color:#eee}
   .theme__dark .pwrs-modal{background:#2a2a2a;color:#f2f2f2}
   .theme__dark .pwrs-modal p.sub{color:#bbb}
   .theme__dark .pwrs-field{background:#1f1f1f}
@@ -55,7 +57,9 @@
     o.innerHTML = `<div class="pwrs-modal">
       <h2>Add Custom Game Support</h2>
       <p class="sub">Type the game's name (or paste its Steam store link) and pick a gameplay video that shows some kills, wins or other highlights. Everything else is automatic.</p>
-      <div class="pwrs-field"><label>Game title or Steam link</label><input id="pwrs-title" placeholder="e.g. Delta Force  or  https://store.steampowered.com/app/2507950/Delta_Force/"></div>
+      <div class="pwrs-field"><label>What to do</label><select id="pwrs-mode" style="width:100%;box-sizing:border-box;border:1px solid #8884;border-radius:12px;padding:11px 12px;font:inherit;font-size:14px;background:transparent;color:inherit"><option value="">Add a new game</option></select>
+        <p class="sub" id="pwrs-modehint" style="margin:8px 0 0;display:none">The new video is scanned and combined with this game's earlier videos, so events your first video didn't show get detected too. Your own event edits are kept. The video also counts as analysed.</p></div>
+      <div class="pwrs-field" id="pwrs-titlebox"><label>Game title or Steam link</label><input id="pwrs-title" placeholder="e.g. Delta Force  or  https://store.steampowered.com/app/2507950/Delta_Force/"></div>
       <div class="pwrs-field"><label>Gameplay video</label><div class="pwrs-row"><div class="pwrs-file" id="pwrs-file">No video selected</div><button class="pwrs-btn" id="pwrs-pick">Choose video</button></div></div>
       <div class="pwrs-status" id="pwrs-status"></div>
       <div class="pwrs-log" id="pwrs-log"></div>
@@ -69,6 +73,10 @@
     document.body.appendChild(o)
     let video = ''
     const $ = (id) => o.querySelector('#' + id)
+    get('/__pw/x/edit-list').then((games) => {
+      for (const g of games) { const op = document.createElement('option'); op.value = g.id; op.textContent = 'Improve "' + g.name + '" with another video'; $('pwrs-mode').appendChild(op) }
+    })
+    $('pwrs-mode').onchange = () => { const add = !!$('pwrs-mode').value; $('pwrs-titlebox').style.display = add ? 'none' : ''; $('pwrs-modehint').style.display = add ? '' : 'none' }
     $('pwrs-close').onclick = () => o.remove()
     $('pwrs-editlink').onclick = () => { o.remove(); openEditor() }
     o.addEventListener('mousedown', (e) => { if (e.target === o && !$('pwrs-apply').disabled) o.remove() })
@@ -78,12 +86,13 @@
     }
     $('pwrs-apply').onclick = async () => {
       const title = $('pwrs-title').value.trim()
-      if (!title) { $('pwrs-status').textContent = 'Enter the game title or its Steam link.'; return }
+      const addTo = $('pwrs-mode').value
+      if (!title && !addTo) { $('pwrs-status').textContent = 'Enter the game title or its Steam link.'; return }
       if (!video) { $('pwrs-status').textContent = 'Choose a gameplay video.'; return }
       $('pwrs-apply').disabled = true; $('pwrs-pick').disabled = true
       $('pwrs-log').style.display = 'block'
       $('pwrs-status').textContent = 'Working... this takes a few minutes for a long video.'
-      await post('/__pw/x/addgame', { title, video })
+      await post('/__pw/x/addgame', { title, video, addTo })
       const tick = async () => {
         const s = await get('/__pw/x/addgame')
         $('pwrs-log').textContent = s.log.join('\n'); $('pwrs-log').scrollTop = 1e9

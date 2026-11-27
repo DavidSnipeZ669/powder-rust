@@ -548,6 +548,41 @@ pub fn build_game(d: &Discovery, rules: &[Rule], games_dir: &Path, id: &str, nam
     Ok(dir)
 }
 
+/// Several scans (videos) of one game as one: frames are appended one after another.
+pub fn combine(ds: Vec<Discovery>) -> Option<Discovery> {
+    let mut it = ds.into_iter();
+    let mut out = it.next()?;
+    for d in it {
+        let off = out.frame_times.len();
+        let t_off = out.frame_times.last().copied().unwrap_or(0.0) + 60.0;
+        out.frame_times.extend(d.frame_times.iter().map(|t| t + t_off));
+        out.detections.extend(d.detections.into_iter().map(|mut x| {
+            x.frame += off;
+            x
+        }));
+    }
+    out.groups = group(&out.detections, out.frame_times.len());
+    Some(out)
+}
+
+/// Every saved scan of a game: `<work>/discovery.json` plus `<work>/videos/*/discovery.json`.
+pub fn load_all(work: &Path) -> Vec<Discovery> {
+    let mut v = Vec::new();
+    if let Ok(d) = load(&work.join("discovery.json")) {
+        v.push(d);
+    }
+    if let Ok(rd) = std::fs::read_dir(work.join("videos")) {
+        let mut dirs: Vec<_> = rd.flatten().map(|e| e.path()).collect();
+        dirs.sort();
+        for p in dirs {
+            if let Ok(d) = load(&p.join("discovery.json")) {
+                v.push(d);
+            }
+        }
+    }
+    v
+}
+
 pub fn load(path: &Path) -> Result<Discovery> {
     serde_json::from_str(&std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?).context("parsing discovery.json")
 }
